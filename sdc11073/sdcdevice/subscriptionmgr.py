@@ -10,16 +10,13 @@ import http.client
 from lxml import etree as etree_
 from ..namespaces import xmlTag, wseTag, wsaTag, msgTag, nsmap, DocNamespaceHelper
 from ..namespaces import Prefix_Namespace as Prefix
-from .. import pysoap
 from .. import isoduration
 from .. import xmlparsing
 from .. import observableproperties
 from .. import multikey
 from .. import loghelper
 from ..compression import CompressionHandler
-
-WsAddress = pysoap.soapenvelope.WsAddress
-Soap12Envelope = pysoap.soapenvelope.Soap12Envelope
+from ..transport.soap import soapenvelope, soapclient
 
 MAX_ROUNDTRIP_VALUES = 20
 
@@ -134,12 +131,12 @@ class _DevSubscription(object):
         return False
 
     def _mkNotificationReport(self, soapEnvelope, action):
-        addr = pysoap.soapenvelope.WsAddress(to=self.notifyToAddress,
-                                             action=action,
-                                             from_=None,
-                                             replyTo=None,
-                                             faultTo=None,
-                                             referenceParametersNode=None)
+        addr = soapenvelope.WsAddress(to=self.notifyToAddress,
+                                      action=action,
+                                      from_=None,
+                                      replyTo=None,
+                                      faultTo=None,
+                                      referenceParametersNode=None)
         soapEnvelope.setAddress(addr)
         for identNode in self.notifyRefNodes:
             soapEnvelope.addHeaderElement(identNode)
@@ -148,12 +145,12 @@ class _DevSubscription(object):
 
     def _mkEndReport(self, soapEnvelope, action):
         to_addr = self.endToAddress or self.notifyToAddress
-        addr = pysoap.soapenvelope.WsAddress(to=to_addr,
-                                             action=action,
-                                             from_=None,
-                                             replyTo=None,
-                                             faultTo=None,
-                                             referenceParametersNode=None)
+        addr = soapenvelope.WsAddress(to=to_addr,
+                                      action=action,
+                                      from_=None,
+                                      replyTo=None,
+                                      faultTo=None,
+                                      referenceParametersNode=None)
         soapEnvelope.setAddress(addr)
         ref_nodes = self.endToRefNodes or self.notifyRefNodes
         for identNode in ref_nodes:
@@ -166,7 +163,7 @@ class _DevSubscription(object):
     def sendNotificationReport(self, bodyNode, action, doc_nsmap):
         if not self.isValid:
             return
-        soapEnvelope = pysoap.soapenvelope.Soap12Envelope(doc_nsmap)
+        soapEnvelope = soapenvelope.Soap12Envelope(doc_nsmap)
         soapEnvelope.addBodyElement(bodyNode)
         rep = self._mkNotificationReport(soapEnvelope, action)
         try:
@@ -182,7 +179,7 @@ class _DevSubscription(object):
                 pass
             self._notifyErrors = 0
             self._isConnectionError = False
-        except pysoap.soapclient.HTTPReturnCodeError:
+        except soapclient.HTTPReturnCodeError:
             self._notifyErrors += 1
             raise
         except Exception:  # any other exception is handled as an unreachable location (disconnected)
@@ -198,7 +195,7 @@ class _DevSubscription(object):
             return
         if self._soapClient is None:
             return
-        soapEnvelope = pysoap.soapenvelope.Soap12Envelope(doc_nsmap)
+        soapEnvelope = soapenvelope.Soap12Envelope(doc_nsmap)
 
         subscriptionEndNode = etree_.Element(wseTag('SubscriptionEnd'),
                                              nsmap=Prefix.partialMap(Prefix.WSE, Prefix.WSA, Prefix.XML))
@@ -206,8 +203,7 @@ class _DevSubscription(object):
         # child of Subscriptionmanager is the endpoint reference of the subscription manager (wsa:EndpointReferenceType)
         referenceParametersNode = etree_.Element(wsaTag('ReferenceParameters'))
         referenceParametersNode.append(copy.copy(self.my_identifier))
-        epr = pysoap.soapenvelope.WsaEndpointReferenceType(address=my_addr,
-                                                           referenceParametersNode=referenceParametersNode)
+        epr = soapenvelope.WsaEndpointReferenceType(address=my_addr, referenceParametersNode=referenceParametersNode)
         epr.asEtreeSubNode(subscriptionManagerNode)
 
         # remark: optionally one could add own address and identifier here ...
@@ -319,18 +315,18 @@ class SubscriptionsManager(object):
         key = s._url.netloc  # pylint:disable=protected-access
         soapClient = self.soapClients.get(key)
         if soapClient is None:
-            soapClient = pysoap.soapclient.SoapClient(key, loghelper.getLoggerAdapter('sdc.device.soap', self.log_prefix),
-                                                      sslContext=self._sslContext, sdc_definitions=self.sdc_definitions,
-                                                      supportedEncodings=self._supportedEncodings,
-                                                      requestEncodings=acceptedEncodings,
-                                                      chunked_requests=self._chunked_messages)
+            soapClient = soapclient.SoapClient(key, loghelper.getLoggerAdapter('sdc.device.soap', self.log_prefix),
+                                               sslContext=self._sslContext, sdc_definitions=self.sdc_definitions,
+                                               supportedEncodings=self._supportedEncodings,
+                                               requestEncodings=acceptedEncodings,
+                                               chunked_requests=self._chunked_messages)
             self.soapClients[key] = soapClient
         s.setSoapClient(soapClient)
         with self._subscriptions.lock:
             self._subscriptions.addObject(s)
         self._logger.info('new {}', s)
 
-        response = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
+        response = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
         replyAddress = soapEnvelope.address.mkReplyAddress(
             'http://schemas.xmlsoap.org/ws/2004/08/eventing/SubscribeResponse')
         response.addHeaderObject(replyAddress)
@@ -342,8 +338,7 @@ class SubscriptionsManager(object):
         if epr_path.startswith('/'):
             epr_path = epr_path[1:]
         my_addr = '{}://{}/{}'.format(self.base_urls[0].scheme, self.base_urls[0].netloc, epr_path)
-        epr = pysoap.soapenvelope.WsaEndpointReferenceType(address=my_addr,
-                                                           referenceParametersNode=referenceParametersNode)
+        epr = soapenvelope.WsaEndpointReferenceType(address=my_addr, referenceParametersNode=referenceParametersNode)
         epr.asEtreeSubNode(subscriptionManagerNode)
         expiresNode = etree_.SubElement(subscribeResponseNode, wseTag('Expires'))
         expiresNode.text = s.expireString  # simply confirm request
@@ -375,7 +370,7 @@ class SubscriptionsManager(object):
             self._logger.error('unsubscribe request did not contain an identifier!!!: {}',
                                soapEnvelope.as_xml(pretty=True))
 
-        response = Soap12Envelope(nsmap)
+        response = soapenvelope.Soap12Envelope(nsmap)
         replyAddress = soapEnvelope.address.mkReplyAddress(
             'http://schemas.xmlsoap.org/ws/2004/08/eventing/UnsubscribeResponse')
         response.addHeaderObject(replyAddress)
@@ -426,14 +421,14 @@ class SubscriptionsManager(object):
         self._logger.debug('onGetStatusRequest {}', lambda: soapEnvelope.as_xml(pretty=True))
         subscr = self._getSubscriptionforRequest(soapEnvelope)
         if subscr is None:
-            response = pysoap.soapenvelope.SoapFault(soapEnvelope,
-                                                     code='Receiver',
-                                                     reason='unknown Subscription identifier',
-                                                     subCode=wseTag('InvalidMessage')
-                                                     )
+            response = soapenvelope.SoapFault(soapEnvelope,
+                                              code='Receiver',
+                                              reason='unknown Subscription identifier',
+                                              subCode=wseTag('InvalidMessage')
+                                              )
 
         else:
-            response = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
+            response = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
             replyAddress = soapEnvelope.address.mkReplyAddress(
                 'http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatusResponse')
             response.addHeaderObject(replyAddress)
@@ -456,16 +451,16 @@ class SubscriptionsManager(object):
 
         subscr = self._getSubscriptionforRequest(soapEnvelope)
         if subscr is None:
-            response = pysoap.soapenvelope.SoapFault(soapEnvelope,
-                                                     code='Receiver',
-                                                     reason='unknown Subscription identifier',
-                                                     subCode=wseTag('UnableToRenew')
-                                                     )
+            response = soapenvelope.SoapFault(soapEnvelope,
+                                              code='Receiver',
+                                              reason='unknown Subscription identifier',
+                                              subCode=wseTag('UnableToRenew')
+                                              )
 
         else:
             subscr.renew(expires)
 
-            response = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
+            response = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
             replyAddress = soapEnvelope.address.mkReplyAddress(
                 'http://schemas.xmlsoap.org/ws/2004/08/eventing/RenewResponse')
             response.addHeaderObject(replyAddress)
@@ -648,7 +643,7 @@ class SubscriptionsManager(object):
     def _sendNotificationReport(self, subscription, bodyNode, action, doc_nsmap):
         try:
             subscription.sendNotificationReport(bodyNode, action, doc_nsmap)
-        except pysoap.soapclient.HTTPReturnCodeError as ex:
+        except soapclient.HTTPReturnCodeError as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report: HTTP status= {}, reason={}, {}', ex.status,
                                ex.reason, subscription)

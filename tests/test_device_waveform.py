@@ -5,7 +5,6 @@ import time
 import logging
 import sdc11073
 from sdc11073.sdcdevice import waveforms
-from lxml import etree as etree_
 from tests import mockstuff
 from sdc11073 import pmtypes
 from sdc11073.mdib import descriptorcontainers as dc
@@ -100,15 +99,15 @@ class TestDeviceWaveform(unittest.TestCase):
 
 
     def test_waveformSubscription(self):
-        self._model = sdc11073.pysoap.soapenvelope.DPWSThisModel(manufacturer='Chinakracher GmbH',
-                                                                 manufacturerUrl='www.chinakracher.com',
-                                                                 modelName='BummHuba',
-                                                                 modelNumber='1.0',
-                                                                 modelUrl='www.chinakracher.com/bummhuba/model',
-                                                                 presentationUrl='www.chinakracher.com/bummhuba/presentation')
-        self._device = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendlyName='Big Bang Practice',
-                                                                   firmwareVersion='0.99',
-                                                                   serialNumber='87kabuuum889')
+        self._model = sdc11073.transport.soap.soapenvelope.DPWSThisModel(manufacturer='Chinakracher GmbH',
+                                                                         manufacturerUrl='www.chinakracher.com',
+                                                                         modelName='BummHuba',
+                                                                         modelNumber='1.0',
+                                                                         modelUrl='www.chinakracher.com/bummhuba/model',
+                                                                         presentationUrl='www.chinakracher.com/bummhuba/presentation')
+        self._device = sdc11073.transport.soap.soapenvelope.DPWSThisDevice(friendlyName='Big Bang Practice',
+                                                                           firmwareVersion='0.99',
+                                                                           serialNumber='87kabuuum889')
         
         tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.02)
         st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.02)

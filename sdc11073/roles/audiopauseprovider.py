@@ -1,8 +1,6 @@
-from ..namespaces import Prefix_Namespace as Prefix
 from ..namespaces import domTag, siTag, nsmap
 from .. import sdcdevice
 from .. import pmtypes
-from .. import safety
 from ..nomenclature import NomenclatureCodes as nc
 
 from . import providerbase

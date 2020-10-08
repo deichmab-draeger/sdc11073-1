@@ -89,16 +89,16 @@ class DeviceActivity(threading.Thread):
 def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
     my_mdib = sdc11073.mdib.DeviceMdibContainer.fromMdibFile(mdibPath)
     my_uuid = uuid.UUID(My_Dev_UUID_str)
-    dpwsModel = sdc11073.pysoap.soapenvelope.DPWSThisModel(manufacturer='sdc11073',
-                                                        manufacturerUrl='www.sdc11073.com',
-                                                        modelName='TestDevice',
-                                                        modelNumber='1.0',
-                                                        modelUrl='www.draeger.com/model',
-                                                        presentationUrl='www.draeger.com/model/presentation')
+    dpwsModel = sdc11073.transport.soap.soapenvelope.DPWSThisModel(manufacturer='sdc11073',
+                                                                   manufacturerUrl='www.sdc11073.com',
+                                                                   modelName='TestDevice',
+                                                                   modelNumber='1.0',
+                                                                   modelUrl='www.draeger.com/model',
+                                                                   presentationUrl='www.draeger.com/model/presentation')
 
-    dpwsDevice = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendlyName='TestDevice',
-                                                          firmwareVersion='Version1',
-                                                          serialNumber='12345')
+    dpwsDevice = sdc11073.transport.soap.soapenvelope.DPWSThisDevice(friendlyName='TestDevice',
+                                                                     firmwareVersion='Version1',
+                                                                     serialNumber='12345')
     sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.SdcDevice(wsdiscovery_instance,
                                                            my_uuid,
                                                            dpwsModel,

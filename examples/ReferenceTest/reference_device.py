@@ -1,5 +1,3 @@
-
-import logging
 import json
 import logging.config
 import os
@@ -45,16 +43,16 @@ if __name__ == '__main__':
     print("UUID for this device is {}".format(my_uuid))
     loc = sdc11073.location.SdcLocation(ref_fac, ref_poc, ref_bed)
     print("location for this device is {}".format(loc))
-    dpwsModel = sdc11073.pysoap.soapenvelope.DPWSThisModel(manufacturer='sdc11073',
-                                                           manufacturerUrl='www.sdc11073.com',
-                                                           modelName='TestDevice',
-                                                           modelNumber='1.0',
-                                                           modelUrl='www.sdc11073.com/model',
-                                                           presentationUrl='www.sdc11073.com/model/presentation')
+    dpwsModel = sdc11073.transport.soap.soapenvelope.DPWSThisModel(manufacturer='sdc11073',
+                                                                   manufacturerUrl='www.sdc11073.com',
+                                                                   modelName='TestDevice',
+                                                                   modelNumber='1.0',
+                                                                   modelUrl='www.sdc11073.com/model',
+                                                                   presentationUrl='www.sdc11073.com/model/presentation')
 
-    dpwsDevice = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendlyName='TestDevice',
-                                                             firmwareVersion='Version1',
-                                                             serialNumber='12345')
+    dpwsDevice = sdc11073.transport.soap.soapenvelope.DPWSThisDevice(friendlyName='TestDevice',
+                                                                     firmwareVersion='Version1',
+                                                                     serialNumber='12345')
     if ca_folder:
         ssl_context = mk_ssl_context_from_folder(ca_folder, cyphers_file='device_cyphers.txt',
                                                  ssl_passwd=ssl_passwd)

@@ -1,6 +1,6 @@
 import unittest
 from lxml import etree as etree_
-from sdc11073 import safety
+from sdc11073.transport.soap import safety
 from sdc11073.namespaces import Prefix_Namespace as Prefix
 from sdc11073.namespaces import nsmap
 

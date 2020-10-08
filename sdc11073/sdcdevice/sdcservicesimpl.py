@@ -4,11 +4,12 @@ from collections import namedtuple, OrderedDict
 from io import BytesIO
 from lxml import etree as etree_
 
-from .. import pysoap
 from ..namespaces import Prefix_Namespace as Prefix
 from ..namespaces import msgTag, domTag, s12Tag, wsxTag, wseTag, dpwsTag, mdpwsTag, nsmap
 from .. import pmtypes
 from .. import loghelper
+from ..transport.soap import soapenvelope
+
 from .exceptions import InvalidActionError, FunctionNotImplementedError
 _msg_prefix = Prefix.MSG.prefix
 
@@ -209,14 +210,14 @@ class DPWSHostedService(EventService):
         self.epr = '/{}/{}'.format(my_uuid, path_suffix)  # end point reference
         endpointReferencesList = []
         for addr in base_urls:
-            endpointReferencesList.append(pysoap.soapenvelope.WsaEndpointReferenceType('{}/{}'.format(addr.geturl(), path_suffix)))
+            endpointReferencesList.append(soapenvelope.WsaEndpointReferenceType('{}/{}'.format(addr.geturl(), path_suffix)))
         porttype_ns = sdcDevice.mdib.sdc_definitions.PortTypeNamespace
         # little bit ugly: normalizeXMLText needs bytes, not string. and it looks for namespace in "".
         porttype_ns = sdcDevice.mdib.sdc_definitions.normalizeXMLText(b'"'+porttype_ns.encode('utf-8')+b'"')[1:-1].decode('utf-8')
-        self.hostedInf = pysoap.soapenvelope.DPWSHosted(endpointReferencesList=endpointReferencesList,
-                                                        typesList=[
+        self.hostedInf = soapenvelope.DPWSHosted(endpointReferencesList=endpointReferencesList,
+                                                                         typesList=[
                                                             etree_.QName(porttype_ns, p) for p in self._my_port_types],
-        serviceId=self._my_port_types[0])
+                                                                         serviceId=self._my_port_types[0])
 
         self.register_soapActionCallback('{}/GetMetadata/Request'.format(Prefix.WSX.namespace), self._onGetMetaData)
         self.register_getCallback(path=self.epr, query='wsdl', fn=self._onGetWSDL)
@@ -285,7 +286,7 @@ class DPWSHostedService(EventService):
 
     def _onGetMetaData(self, httpHeader, request):
         _nsm = self._mdib.nsmapper
-        response = pysoap.soapenvelope.Soap12Envelope(_nsm.docNssmap)
+        response = soapenvelope.Soap12Envelope(_nsm.docNssmap)
         replyAddress = request.address.mkReplyAddress('http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Response')
         response.addHeaderObject(replyAddress)
 
@@ -525,7 +526,7 @@ class GetService(DPWSPortTypeImpl):
 
             # build response
             nsmapper = self._mdib.nsmapper
-            responseSoapEnvelope = pysoap.soapenvelope.Soap12Envelope(
+            responseSoapEnvelope = soapenvelope.Soap12Envelope(
                 nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
             replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdStateResponse'))
             responseSoapEnvelope.addHeaderObject(replyAddress)
@@ -546,7 +547,7 @@ class GetService(DPWSPortTypeImpl):
     def _onGetMdib(self, httpHeader, request):  # pylint:disable=unused-argument
         self._logger.debug('_onGetMdib')
         nsmapper = self._mdib.nsmapper
-        responseSoapEnvelope = pysoap.soapenvelope.Soap12Envelope(
+        responseSoapEnvelope = soapenvelope.Soap12Envelope(
             nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdibResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)
@@ -592,7 +593,7 @@ class GetService(DPWSPortTypeImpl):
                 includeMds = True
                 break
         my_namespaces = self._sdcDevice.mdib.nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.MSG, Prefix.PM)
-        responseSoapEnvelope = pysoap.soapenvelope.Soap12Envelope(my_namespaces)
+        responseSoapEnvelope = soapenvelope.Soap12Envelope(my_namespaces)
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdDescriptionResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)
 
@@ -764,7 +765,7 @@ class SetService(DPWSPortTypeImpl):
         :param responseName:
         :return:
         '''
-        response = pysoap.soapenvelope.Soap12Envelope(self._mdib.nsmapper.partialMap(Prefix.S12, Prefix.WSA))
+        response = soapenvelope.Soap12Envelope(self._mdib.nsmapper.partialMap(Prefix.S12, Prefix.WSA))
         replyAddress = request.address.mkReplyAddress(action=self._getActionString(responseName))
         response.addHeaderObject(replyAddress)
         replyBodyNode = etree_.Element(msgTag(responseName),
@@ -896,7 +897,7 @@ class ContextService(DPWSPortTypeImpl):
 
     def _onSetContextState(self, httpHeader, request):  # pylint:disable=unused-argument
         ''' enqueues an operation and returns a 'wait' reponse.'''
-        response = pysoap.soapenvelope.Soap12Envelope(
+        response = soapenvelope.Soap12Envelope(
             self._mdib.nsmapper.partialMap(Prefix.S12, Prefix.PM, Prefix.WSA, Prefix.MSG))
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('SetContextStateResponse'))
         response.addHeaderObject(replyAddress)
@@ -946,7 +947,7 @@ class ContextService(DPWSPortTypeImpl):
         if len(requestedHandles) > 0:
             self._logger.info('_onGetContextStates requested Handles:{}', requestedHandles)
         nsmapper = self._mdib.nsmapper
-        response = pysoap.soapenvelope.Soap12Envelope(
+        response = soapenvelope.Soap12Envelope(
             nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetContextStatesResponse'))
         response.addHeaderObject(replyAddress)

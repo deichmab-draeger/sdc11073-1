@@ -1,8 +1,6 @@
 import time
-from lxml import etree as etree_
 from .. import namespaces
 from ..pmtypes import ContextAssociation
-from..mdib import msgreader
 from . import providerbase
 
 

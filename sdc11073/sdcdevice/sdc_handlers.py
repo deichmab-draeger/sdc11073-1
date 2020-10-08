@@ -1,12 +1,9 @@
 import uuid
-import json
 import os
 import time
-import ssl
 import urllib
 import logging
 import threading
-import traceback
 
 from lxml import etree as etree_
 
@@ -16,7 +13,6 @@ from .. import pmtypes
 from .. import wsdiscovery
 from ..location import SdcLocation
 from .. import namespaces
-from .. import pysoap
 
 from .sdcservicesimpl import SOAPActionDispatcher, DPWSHostedService
 from .sdcservicesimpl import GetService, SetService, StateEventService,  ContainmentTreeService, ContextService, WaveformService, DescriptionEventService
@@ -26,7 +22,7 @@ from . import sco
 from . import httpserver
 from . import intervaltimer
 
-Soap12Envelope = pysoap.soapenvelope.Soap12Envelope
+from ..transport.soap import soapenvelope
 
 Prefix = namespaces.Prefix_Namespace
 
@@ -279,8 +275,8 @@ class SdcHandler_Base(object):
             base_urls.append(
                 urllib.parse.SplitResult(self._urlschema, '{}:{}'.format(addr, port), self.path_prefix, query=None,
                                          fragment=None))
-        self.dpwsHost = pysoap.soapenvelope.DPWSHost(
-            endpointReferencesList=[pysoap.soapenvelope.WsaEndpointReferenceType(self.epr)],
+        self.dpwsHost = soapenvelope.DPWSHost(
+            endpointReferencesList=[soapenvelope.WsaEndpointReferenceType(self.epr)],
             typesList=self._mdib.sdc_definitions.MedicalDeviceTypesFilter)
         # register two addresses for hostDispatcher: '' and /<uuid>
         self._url_dispatcher.register_hosted_service(self._hostDispatcher)
@@ -330,7 +326,7 @@ class SdcHandler_Base(object):
     def _onGetMetaData(self, httpHeader, request):
         self._logger.info('_onGetMetaData')
         _nsm = self._mdib.nsmapper
-        response = pysoap.soapenvelope.Soap12Envelope(_nsm.docNssmap)
+        response = soapenvelope.Soap12Envelope(_nsm.docNssmap)
         replyAddress = request.address.mkReplyAddress('{}/GetResponse'.format(Prefix.WXF.namespace))
         replyAddress.to = namespaces.WSA_ANONYMOUS
         replyAddress.messageId = uuid.uuid4().urn
@@ -343,7 +339,7 @@ class SdcHandler_Base(object):
 
     def _onProbeRequest(self, httpHeader, request):
         _nsm = namespaces.DocNamespaceHelper()
-        response = pysoap.soapenvelope.Soap12Envelope(_nsm.docNssmap)
+        response = soapenvelope.Soap12Envelope(_nsm.docNssmap)
         replyAddress = request.address.mkReplyAddress('{}/ProbeMatches'.format(Prefix.WSD.namespace))
         replyAddress.to = namespaces.WSA_ANONYMOUS
         replyAddress.messageId = uuid.uuid4().urn

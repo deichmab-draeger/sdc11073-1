@@ -28,9 +28,9 @@ class OperationsManager(object):
         '''
         ret = Future()
         with self._transactionsLock:
-            resultSoapEnvelope = hostedServiceClient.postSoapEnvelope(soapEnvelope,
-                                                                      msg='call Operation',
-                                                                      request_manipulator=request_manipulator)
+            resultSoapEnvelope = hostedServiceClient.send_envelope(soapEnvelope,
+                                                                   msg='call Operation',
+                                                                   request_manipulator=request_manipulator)
             transactionId = resultSoapEnvelope.msgNode.xpath('msg:InvocationInfo/msg:TransactionId/text()', namespaces=nsmap)[0]
             invocationState = resultSoapEnvelope.msgNode.xpath('msg:InvocationInfo/msg:InvocationState/text()', namespaces=nsmap)[0]
 

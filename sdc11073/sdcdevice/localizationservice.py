@@ -1,13 +1,12 @@
 from collections import defaultdict
 from lxml import etree as etree_
-from .. import pysoap
 from ..namespaces import Prefix_Namespace as Prefix
 from ..namespaces import msgTag, dpwsTag, nsmap
 
 from .sdcservicesimpl import DPWSPortTypeImpl
 from .sdcservicesimpl import WSDLMessageDescription, WSDLOperationBinding
 from .sdcservicesimpl import _wsdl_ns, _mkWsdlTwowayOperation
-
+from ..transport.soap import soapenvelope
 _msg = Prefix.MSG.prefix
 
 def _tw2i(textwidth_string):
@@ -221,7 +220,7 @@ class LocalizationService(DPWSPortTypeImpl):
 
         # create the response
         nsmapper = self._mdib.nsmapper
-        responseSoapEnvelope = pysoap.soapenvelope.Soap12Envelope(
+        responseSoapEnvelope = soapenvelope.Soap12Envelope(
             nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetLocalizedTextResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)
@@ -240,7 +239,7 @@ class LocalizationService(DPWSPortTypeImpl):
         languages = self.localizationStorage.getSupportedlanguages()
 
         nsmapper = self._mdib.nsmapper
-        responseSoapEnvelope = pysoap.soapenvelope.Soap12Envelope(
+        responseSoapEnvelope = soapenvelope.Soap12Envelope(
             nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetSupportedLanguagesResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)

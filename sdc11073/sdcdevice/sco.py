@@ -18,7 +18,7 @@ from .. import namespaces
 from .. import pmtypes
 from .. import loghelper
 from .. import mdib as mdib_
-from ..mdib import msgreader
+from ..transport.soap import msgreader
 
 
 class _OperationsWorker(threading.Thread):

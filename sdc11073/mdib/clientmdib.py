@@ -8,7 +8,7 @@ import copy
 from lxml import etree as etree_
 from .. import observableproperties as properties
 from . import mdibbase
-from . import msgreader
+from ..transport.soap import msgreader
 from .. import namespaces
 from .. import pmtypes
 from concurrent import futures

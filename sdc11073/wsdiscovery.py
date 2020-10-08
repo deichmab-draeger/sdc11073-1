@@ -19,12 +19,12 @@ from http.client import HTTPConnection, RemoteDisconnected
 import queue
 
 try:
-    from sdc11073.netconn import getNetworkAdapterConfigs
+    from .netconn import getNetworkAdapterConfigs
 except ImportError:
     def getNetworkAdapterConfigs():
         return []
 try:
-    from sdc11073.commlogg import getCommunicationLogger
+    from .commlogg import getCommunicationLogger
 except ImportError:
     class NullLogger(object):
         ''' This is a dummy logger that does nothing.'''

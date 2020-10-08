@@ -10,11 +10,11 @@ import time
 import http.client as httplib
 from lxml.etree import XMLSyntaxError
 
-from .. import observableproperties
-from .. import commlog
-from ..compression import CompressionHandler
+from sdc11073 import observableproperties
+from sdc11073 import commlog
+from sdc11073.compression import CompressionHandler
 from . import soapenvelope
-from ..httprequesthandler import HTTPReader, mkchunks
+from sdc11073.httprequesthandler import HTTPReader, mkchunks
 
 class HTTPConnection_NODELAY(httplib.HTTPConnection):
     def connect(self):

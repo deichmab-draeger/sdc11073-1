@@ -1,8 +1,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
-import six
 import unittest
-from sdc11073.pysoap import soapenvelope
+from sdc11073.transport.soap import soapenvelope
 
 
 class TestSoapEnvelope(unittest.TestCase):

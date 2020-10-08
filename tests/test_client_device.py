@@ -16,8 +16,8 @@ from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.location import SdcLocation
 from sdc11073.nomenclature import NomenclatureCodes as nc
 from sdc11073 import loghelper
-from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
-from sdc11073.pysoap.soapenvelope import ReceivedSoapFault
+from sdc11073.transport.soap.soapclient import SoapClient, HTTPReturnCodeError
+from sdc11073.transport.soap.soapenvelope import ReceivedSoapFault
 from sdc11073.sdcclient import SdcClient
 from sdc11073.mdib import ClientMdibContainer
 from sdc11073.sdcdevice import waveforms
@@ -1315,7 +1315,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
         for sdcClient, sdcDevice in self._all_cl_dev:
             sdcClient.GetService_client._validate = False # want to send an invalid request
             try:
-                sdcClient.GetService_client._callGetMethod('Nonsense')
+                method = 'Nonsense'
+                envelope = sdcClient.GetService_client._envelope_creator._mk_get_method_envelope(sdcClient.GetService_client.endpoint_reference.address,
+                                                                      sdcClient.GetService_client.porttype,
+                                                                      method)
+                sdcClient.GetService_client._callGetMethod(envelope, 'Nonsense')
             except HTTPReturnCodeError as ex:
                 self.assertEqual(ex.status, 400)
                 fault_xml = ex.reason

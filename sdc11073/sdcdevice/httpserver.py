@@ -5,11 +5,10 @@ import socket
 import urllib
 from http.server import HTTPServer
 from .exceptions import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
-from .. import pysoap
 from .. import commlog
 from .. import loghelper
 from ..httprequesthandler import HTTPRequestHandler, mkchunks
-
+from ..transport.soap import soapenvelope
 
 MULTITHREADED = True
 
@@ -110,7 +109,7 @@ class HostedServiceDispatcher(object):
         commlog.defaultLogger.logSoapReqIn(request, 'POST')
         normalizedRequest = self.sdc_definitions.normalizeXMLText(request)
         # execute the method
-        soapEnvelope = pysoap.soapenvelope.AddressedSoap12Envelope.fromXMLString(normalizedRequest)
+        soapEnvelope = soapenvelope.ReceivedSoap12Envelope.fromXMLString(normalizedRequest)
         response = self._dispatchSoapRequest(path, headers, soapEnvelope)
         normalized_response_xml_string = response.as_xml()
         return self.sdc_definitions.denormalizeXMLText(normalized_response_xml_string)
@@ -197,10 +196,10 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             # we must create a soapEnvelope in order to generate a SoapFault
             dev_dispatcher = devices_dispatcher.get_device_dispather(self.path)
             normalizedRequest = dev_dispatcher.sdc_definitions.normalizeXMLText(request)
-            soapEnvelope = pysoap.soapenvelope.AddressedSoap12Envelope.fromXMLString(normalizedRequest)
+            soapEnvelope = soapenvelope.ReceivedSoap12Envelope.fromXMLString(normalizedRequest)
 
-            response = pysoap.soapenvelope.SoapFault(soapEnvelope, code=pysoap.soapenvelope.SoapFaultCode.SENDER,
-                                                          reason=str(ex))
+            response = soapenvelope.SoapFault(soapEnvelope, code=soapenvelope.SoapFaultCode.SENDER,
+                                                                      reason=str(ex))
             normalized_response_xml_string = response.as_xml()
             response_xml_string = dev_dispatcher.sdc_definitions.denormalizeXMLText(normalized_response_xml_string)
             self.send_response(500)

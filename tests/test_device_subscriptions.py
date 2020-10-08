@@ -11,12 +11,12 @@ import sdc11073
 from sdc11073.sdcdevice import waveforms
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
-
+from sdc11073.transport.soap.soapenvelope import ReceivedSoap12Envelope, Soap12Envelope
 
 mdibFolder = os.path.dirname(__file__)
 
-AddressedSoap12Envelope = sdc11073.pysoap.soapenvelope.AddressedSoap12Envelope
-Soap12Envelope = sdc11073.pysoap.soapenvelope.Soap12Envelope
+#AddressedSoap12Envelope = sdc11073.transport.soap.soapenvelope.AddressedSoap12Envelope
+#Soap12Envelope = sdc11073.transport.soap.soapenvelope.Soap12Envelope
 
 #pylint: disable=protected-access
 
@@ -52,15 +52,15 @@ class TestDeviceSubscriptions(unittest.TestCase):
         here = os.path.dirname(__file__)
         self.mdib = sdc11073.mdib.DeviceMdibContainer.fromMdibFile(os.path.join(mdibFolder, '70041_MDIB_Final.xml'))
         
-        self._model = sdc11073.pysoap.soapenvelope.DPWSThisModel(manufacturer='Chinakracher GmbH',
-                                                                 manufacturerUrl='www.chinakracher.com',
-                                                                 modelName='BummHuba',
-                                                                 modelNumber='1.0',
-                                                                 modelUrl='www.chinakracher.com/bummhuba/model',
-                                                                 presentationUrl='www.chinakracher.com/bummhuba/presentation')
-        self._device = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendlyName='Big Bang Practice',
-                                                                   firmwareVersion='0.99',
-                                                                   serialNumber='87kabuuum889')
+        self._model = sdc11073.transport.soap.soapenvelope.DPWSThisModel(manufacturer='Chinakracher GmbH',
+                                                                         manufacturerUrl='www.chinakracher.com',
+                                                                         modelName='BummHuba',
+                                                                         modelNumber='1.0',
+                                                                         modelUrl='www.chinakracher.com/bummhuba/model',
+                                                                         presentationUrl='www.chinakracher.com/bummhuba/presentation')
+        self._device = sdc11073.transport.soap.soapenvelope.DPWSThisDevice(friendlyName='Big Bang Practice',
+                                                                           firmwareVersion='0.99',
+                                                                           serialNumber='87kabuuum889')
 
         self.wsDiscovery = sdc11073.wsdiscovery.WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsDiscovery.start()
@@ -94,7 +94,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             time.sleep(3)
             self.assertGreater(len(testSubscr.reports), 20)
             report = testSubscr.reports[-1] # a 
-            in_report = AddressedSoap12Envelope.fromXMLString(report.as_xml())
+            in_report = ReceivedSoap12Envelope.fromXMLString(report.as_xml())
             expected_action = sdcDevice.mdib.sdc_definitions.Actions.Waveform
             self.assertEqual(in_report.address.action, expected_action) 
 
@@ -103,8 +103,9 @@ class TestDeviceSubscriptions(unittest.TestCase):
         ''' verify that a subscription response is valid'''
         notifyTo = 'http://localhost:123'
         endTo = 'http://localhost:124'
-        hosted = sdc11073.pysoap.soapenvelope.DPWSHosted(
-            endpointReferencesList=[sdc11073.pysoap.soapenvelope.WsaEndpointReferenceType('http://1.2.3.4:6000')],
+        hosted = sdc11073.transport.soap.soapenvelope.DPWSHosted(
+            endpointReferencesList=[
+                sdc11073.transport.soap.soapenvelope.WsaEndpointReferenceType('http://1.2.3.4:6000')],
             typesList=['Get'],
             serviceId=123)
         for sdcDevice in self._allDevices:
@@ -121,10 +122,10 @@ class TestDeviceSubscriptions(unittest.TestCase):
             # avoid instantiation of new soap client by pretenting there is one already
             sdcDevice.subscriptionsManager.soapClients['localhost:123'] = 'dummy'
             response = sdcDevice.subscriptionsManager.onSubscribeRequest(httpHeader,
-                                                                          AddressedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),
+                                                                          ReceivedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),
                                                                           'http://abc.com:123/def')
             response.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
-            clSubscr._handleSubscribeResponse(AddressedSoap12Envelope.fromXMLString(response.as_xml()))
+            clSubscr._handleSubscribeResponse(ReceivedSoap12Envelope.fromXMLString(response.as_xml()))
             
             # verify that devices subscription contains the subscription identifier of the client Subscription object
             devSubscr = list(sdcDevice.subscriptionsManager._subscriptions.objects)[0]
@@ -142,7 +143,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             renewRequest.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
             print (renewRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptionsManager.onRenewRequest(AddressedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
+            response = sdcDevice.subscriptionsManager.onRenewRequest(ReceivedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
             print (response.as_xml(pretty=True))
             response.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
     
@@ -151,7 +152,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             getStatusRequest.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
             print (getStatusRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptionsManager.onGetStatusRequest(AddressedSoap12Envelope.fromXMLString(getStatusRequest.as_xml()))
+            response = sdcDevice.subscriptionsManager.onGetStatusRequest(ReceivedSoap12Envelope.fromXMLString(getStatusRequest.as_xml()))
             print (response.as_xml(pretty=True))
             response.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
 
@@ -177,7 +178,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
             
             # verify that header contains the identifier of client subscription
-            env  = AddressedSoap12Envelope.fromXMLString(response.as_xml())
+            env  = ReceivedSoap12Envelope.fromXMLString(response.as_xml())
             idents = env.headerNode.findall(namespaces.wseTag('Identifier'))
             self.assertEqual(len(idents), 1)
             self.assertEqual(idents[0].text, mockstuff.TestDevSubscription.notifyRef)
@@ -216,8 +217,9 @@ class TestDeviceSubscriptions(unittest.TestCase):
         ''' verify that a subscription response is 'Fault' response in case of invalid request'''
         notifyTo = 'http://localhost:123'
         endTo = 'http://localhost:124'
-        hosted = sdc11073.pysoap.soapenvelope.DPWSHosted(
-            endpointReferencesList=[sdc11073.pysoap.soapenvelope.WsaEndpointReferenceType('http://1.2.3.4:6000')],
+        hosted = sdc11073.transport.soap.soapenvelope.DPWSHosted(
+            endpointReferencesList=[
+                sdc11073.transport.soap.soapenvelope.WsaEndpointReferenceType('http://1.2.3.4:6000')],
             typesList=['Get'],
             serviceId=123)
         for sdcDevice in self._allDevices:
@@ -234,10 +236,10 @@ class TestDeviceSubscriptions(unittest.TestCase):
             # avoid instantiation of new soap client by pretenting there is one already
             sdcDevice.subscriptionsManager.soapClients['localhost:123'] = 'dummy'
             response = sdcDevice.subscriptionsManager.onSubscribeRequest(httpHeader,
-                                                                          AddressedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),
+                                                                          ReceivedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),
                                                                           'http://abc.com:123/def')
             response.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
-            clSubscr._handleSubscribeResponse(AddressedSoap12Envelope.fromXMLString(response.as_xml()))
+            clSubscr._handleSubscribeResponse(ReceivedSoap12Envelope.fromXMLString(response.as_xml()))
     
             # check renew
             clSubscr.dev_reference_param[0].text = 'bla'# make ident invalid
@@ -245,7 +247,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             renewRequest.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
             print (renewRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptionsManager.onRenewRequest(AddressedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
+            response = sdcDevice.subscriptionsManager.onRenewRequest(ReceivedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
             print (response.as_xml(pretty=True))
             self.assertEqual(response.bodyNode[0].tag, namespaces.s12Tag('Fault'))
             response.validateBody(sdcDevice.mdib.bicepsSchema.s12Schema)
@@ -254,7 +256,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             getStatusRequest.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
             print (getStatusRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptionsManager.onRenewRequest(AddressedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
+            response = sdcDevice.subscriptionsManager.onRenewRequest(ReceivedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
             print (response.as_xml(pretty=True))
             self.assertEqual(response.bodyNode[0].tag, namespaces.s12Tag('Fault'))
             response.validateBody(sdcDevice.mdib.bicepsSchema.s12Schema)

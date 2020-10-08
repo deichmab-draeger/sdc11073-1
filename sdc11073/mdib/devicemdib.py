@@ -4,8 +4,7 @@ import time
 from collections import OrderedDict, namedtuple
 from threading import Lock
 from . import mdibbase
-from . import msgreader
-from .. import xmlparsing
+from ..transport.soap import msgreader
 from ..namespaces import domTag
 from .. import loghelper
 from .. import pmtypes

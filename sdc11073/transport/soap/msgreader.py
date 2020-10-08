@@ -1,7 +1,7 @@
 from lxml import etree as etree_
 import copy
-from .. import namespaces
-from .. import pmtypes
+from sdc11073 import namespaces
+from sdc11073 import pmtypes
 
 
 class MdibStructureError(Exception):

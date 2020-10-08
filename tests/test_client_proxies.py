@@ -3,7 +3,7 @@ from __future__ import print_function
 import unittest
 import sdc11073
 import logging
-from sdc11073.pysoap.soapenvelope import DPWSHosted, WsaEndpointReferenceType
+from sdc11073.transport.soap.soapenvelope import DPWSHosted, WsaEndpointReferenceType
 from sdc11073 import definitions_sdc
 
 #pylint: disable=protected-access
@@ -27,7 +27,8 @@ class TestClientProxies(unittest.TestCase):
     def test_Get_GetMdib(self):
         for sdcClient in self._allclients:
             getServiceClient = sdcClient._mkHostedServiceClient(porttype='Get', soapClient=None, hosted=self.hosted)
-            soapEnvelope = getServiceClient._mkGetMethodEnvelope(method='GetMdib')
+            soapEnvelope = getServiceClient._envelope_creator.mk_getmdib_envelope(getServiceClient.endpoint_reference.address, getServiceClient.porttype)
+
             print (soapEnvelope.as_xml(pretty=True))
             
             soapEnvelope.validateBody(sdcClient._bicepsSchema.bmmSchema)

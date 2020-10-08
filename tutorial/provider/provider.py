@@ -4,7 +4,7 @@ from sdc11073 import pmtypes
 from sdc11073.namespaces import domTag
 from sdc11073.sdcdevice import SdcDevice
 from sdc11073.mdib import DeviceMdibContainer
-from sdc11073.pysoap.soapenvelope import DPWSThisModel, DPWSThisDevice
+from sdc11073.transport.soap.soapenvelope import DPWSThisModel, DPWSThisDevice
 from sdc11073.location import SdcLocation
 from sdc11073.wsdiscovery import WSDiscoverySingleAdapter
 # example SDC provider (device) that sends out metrics every now and then

@@ -5,7 +5,7 @@ from lxml import etree as etree_
 
 from sdc11073.namespaces import wsaTag, wseTag, dpwsTag, s12Tag, xmlTag, nsmap, WSA_ANONYMOUS, docNameFromQName
 from sdc11073.namespaces import Prefix_Namespace as Prefix
-from .. import isoduration
+from sdc11073 import isoduration
 
 CHECK_NAMESPACES = False   # can be used to enable additional checks for too many namespaces or undefined namespaces
 
@@ -681,11 +681,6 @@ class ReceivedSoap12Envelope(Soap12EnvelopeBase):
             msgNode = doc.find('s12:Body', nsmap)[0]
             schema.assertValid(msgNode)
         return cls(doc=doc, rawdata=xmlString)
-
-
-
-class AddressedSoap12Envelope(ReceivedSoap12Envelope):
-    pass
 
 
 
