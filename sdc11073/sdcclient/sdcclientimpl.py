@@ -27,6 +27,7 @@ from ..definitions_base import ProtocolsRegistry
 from ..definitions_sdc import SDC_v1_Definitions
 from ..transport.soap import soapenvelope
 from ..transport.soap import soapclient
+from ..transport.soap.envelopecreator import SoapEnvelopeCreator
 
 def _mkSoapClient(scheme, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
                   requestEncodings=None, chunked_requests=False):
@@ -83,19 +84,15 @@ class HostedServiceDescription(object):
         return None if not self._validate else self._bicepsSchema.mexSchema
 
     def readMetadata(self, soap_client):
-        soapEnvelope = soapenvelope.Soap12Envelope(nsmap)
-        self._logger.debug('calling GetMetadata on {}', self._endpoint_address)
-        soapEnvelope.setAddress(soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Request',
-                                          to=self._endpoint_address))
-        soapEnvelope.addBodyObject(soapenvelope.GenericNode(etree_.Element('{http://schemas.xmlsoap.org/ws/2004/09/mex}GetMetadata')))
+        soap_envelope = SoapEnvelopeCreator.mk_getmetadata_envelope(self._endpoint_address)
         if self.VALIDATE_MEX:
-            soapEnvelope.validateBody(self._mexSchema)
-        endpointEnvelope = soap_client.postSoapEnvelopeTo(self._url.path,
-                                                          soapEnvelope,
+            soap_envelope.validateBody(self._mexSchema)
+        endpoint_envelope = soap_client.postSoapEnvelopeTo(self._url.path,
+                                                          soap_envelope,
                                                           msg='<{}> readMetadata'.format(self.service_id))
         if self.VALIDATE_MEX:
-            endpointEnvelope.validateBody(self._mexSchema)
-        self.metaData = soapenvelope.MetaDataSection.fromEtreeNode(endpointEnvelope.bodyNode)
+            endpoint_envelope.validateBody(self._mexSchema)
+        self.metaData = soapenvelope.MetaDataSection.fromEtreeNode(endpoint_envelope.bodyNode)
         self.readwsdl(soap_client, self.metaData.wsdl_location)
         return
 
@@ -247,6 +244,9 @@ class SdcClient(object):
         self.peerCertificate = None
         self.all_subscribed = False
 
+        self._envelope_creator = SoapEnvelopeCreator(self.sdc_definitions, self._logger)
+
+
 
     def _register_mdib(self, mdib):
         ''' SdcClient sometimes must know the mdib data (e.g. Set service, activate method).'''
@@ -257,6 +257,7 @@ class SdcClient(object):
             mdib.bicepsSchema = self._bicepsSchema
         self.client('Set').register_mdib(mdib)
         self.client('Context').register_mdib(mdib)
+        self._envelope_creator.register_mdib(mdib)
 
 
     @property
@@ -506,7 +507,8 @@ class SdcClient(object):
 
     def _mkHostedServiceClient(self, porttype, soapClient, hosted):
         cls = self._servicesLookup.get(porttype, HostedServiceClient)
-        return cls(soapClient, hosted, porttype, self._validate, self.sdc_definitions, self._bicepsSchema, self.log_prefix)
+        return cls(soapClient, self._envelope_creator, hosted, porttype, self._validate,
+                   self.sdc_definitions, self._bicepsSchema, self.log_prefix)
 
     def _startEventSink(self, async_dispatch):
         if self._sslEvents == 'auto':
@@ -564,91 +566,83 @@ class SdcClient(object):
 
     def _onOperationInvokedReport(self, msg_envelope):
         ret = self._operationsManager.onOperationInvokedReport(msg_envelope)
-        report = msg_envelope.bodyNode.xpath('msg:OperationInvokedReport', namespaces=nsmap)
-        self.operationInvokedReport = report[0] # update observable
+        reports = msg_envelope.get_payload()
+        if len(reports) == 1:
+            self.operationInvokedReport = reports[0]  # update observable
+        else:
+            self._logger.error('OperationInvokedReport contains {} elements of msg:OperationInvokedReport!', len(reports))
         return ret
 
-
     def _onWaveFormReport(self, msg_envelope):
-        try:
-            waveformStream = msg_envelope.bodyNode[0] # the msg:WaveformStreamReport node
-        except IndexError:
-            waveformStream = None
-            
-        if waveformStream is not None:
+        reports = msg_envelope.get_payload()
+        if len(reports) == 1:
             self._logger_wf.debug('_onWaveFormReport')
+            self.waveFormReport = reports[0]  # update observable
         else:
-            self._logger_wf.error('WaveformStream does not contain msg:WaveformStream!', msg_envelope)
-        
-        self.waveFormReport = waveformStream # update observable
-
+            self._logger.error('WaveFormReport contains {} elements of msg:WaveformStream!', len(reports))
+            self.waveFormReport = None
 
     def _onEpisodicMetricReport(self, msg_envelope):
-        reports = msg_envelope.bodyNode.xpath('msg:EpisodicMetricReport', namespaces=nsmap)
+        reports = msg_envelope.get_payload()
         if len(reports) == 1:
-            self._logger.debug('_onEpisodicMetricReport')
-            self.episodicMetricReport = reports[0] # update observable
+            self._logger.debug('EpisodicMetricReport received')
+            self.episodicMetricReport = reports[0]  # update observable
         elif len(reports) > 1:
             self._logger.error('EpisodicMetricReport contains {} elements of msg:EpisodicMetricReport!', len(reports))
         else:
             self._logger.error('EpisodicMetricReport does not contain msg:EpisodicMetricReport!')
 
-
     def _onEpisodicAlertReport(self, msg_envelope):
-        reports = msg_envelope.bodyNode.xpath('msg:EpisodicAlertReport', namespaces=nsmap)
+        reports = msg_envelope.get_payload()
         if len(reports) == 1:
-            self._logger.debug('_onEpisodicAlertReport')
-            self.episodicAlertReport = reports[0] # update observable
+            self._logger.debug('EpisodicAlertReport received')
+            self.episodicAlertReport = reports[0]  # update observable
         elif len(reports) > 1:
             self._logger.error('EpisodicAlertReport contains {} elements of msg:EpisodicAlertReport!', len(reports))
         else:
             self._logger.error('EpisodicAlertReport does not contain msg:EpisodicAlertReport!', msg_envelope)
 
-
     def _onEpisodicComponentReport(self, msg_envelope):
-        report = msg_envelope.bodyNode.xpath('msg:EpisodicComponentReport', namespaces=nsmap)
-        if len(report) == 1:
+        reports = msg_envelope.get_payload()
+        if len(reports) == 1:
             self._logger.debug('EpisodicComponentReport received')
-            self.episodicComponentReport = report[0] # update observable
-        elif len(report) > 1:
-            self._logger.error('EpisodicComponentReport contains {} elements of msg:EpisodicComponentReport!', len(report))
+            self.episodicComponentReport = reports[0]  # update observable
+        elif len(reports) > 1:
+            self._logger.error('EpisodicComponentReport contains {} elements of msg:EpisodicComponentReport!', len(reports))
         else:
             self._logger.error('EpisodicComponentReport does not contain msg:EpisodicComponentReport!', msg_envelope)
 
-
     def _onEpisodicOperationalStateReport(self, msg_envelope):
-        report = msg_envelope.bodyNode.xpath('msg:EpisodicOperationalStateReport', namespaces=nsmap)
-        if len(report) == 1:
-            self._logger.debug('EpisodicOperationalStateReport: {}', lambda:etree_.tostring(report[0]))
-            self.episodicOperationalStateReport = report[0] # update observable
-        elif len(report) > 1:
-            self._logger.error('OperationalStateReport contains {} elements of msg:OperationalStateReport!', len(report))
+        reports = msg_envelope.get_payload()
+        if len(reports) == 1:
+            self._logger.debug('EpisodicOperationalStateReport received')
+            self.episodicOperationalStateReport = reports[0]  # update observable
+        elif len(reports) > 1:
+            self._logger.error('OperationalStateReport contains {} elements of msg:OperationalStateReport!', len(reports))
         else:
             self._logger.error('OperationalStateReport does not contain msg:OperationalStateReport!', msg_envelope)
-    
-    
+
     def _onSubScriptionEnd(self, msg_envelope):
-        self.stateEventReportEnvelope = msg_envelope # update observable
+        self.stateEventReportEnvelope = msg_envelope  # update observable
         self._subscriptionMgr.onSubScriptionEnd(msg_envelope)
 
-    
     def _onEpisodicContextReport(self, msg_envelope):
-        report = msg_envelope.bodyNode.xpath('msg:EpisodicContextReport', namespaces=nsmap)
-        if len(report) == 1:
-            self._logger.debug('EpisodicContextReport: {}', lambda:etree_.tostring(report[0]))
-            self.episodicContextReport = report[0] # update observable
-        elif len(report) > 1:
-            self._logger.error('EpisodicContextReport contains {} elements of msg:EpisodicContextReport!', len(report))
+        reports = msg_envelope.get_payload()
+        if len(reports) == 1:
+            self._logger.debug('EpisodicContextReport received')
+            self.episodicContextReport = reports[0]  # update observable
+        elif len(reports) > 1:
+            self._logger.error('EpisodicContextReport contains {} elements of msg:EpisodicContextReport!', len(reports))
         else:
             self._logger.error('EpisodicContextReport does not contain msg:EpisodicContextReport!', msg_envelope)
 
 
     def _onEpisodicDescriptionReport(self, msg_envelope):
-        report = msg_envelope.bodyNode.xpath('msg:DescriptionModificationReport', namespaces=nsmap)
-        if len(report) == 1:
-            self.descriptionModificationReport = report[0]
-        elif len(report) > 1:
-            self._logger.error('DescriptionModificationReport contains {} elements of msg:DescriptionModificationReport!', len(report))
+        reports = msg_envelope.get_payload()
+        if len(reports) == 1:
+            self.descriptionModificationReport = reports[0]
+        elif len(reports) > 1:
+            self._logger.error('DescriptionModificationReport contains {} elements of msg:DescriptionModificationReport!', len(reports))
         else:
             self._logger.error('DescriptionModificationReport does not contain msg:DescriptionModificationReport!', msg_envelope)
 

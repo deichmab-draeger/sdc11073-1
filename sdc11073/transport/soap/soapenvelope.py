@@ -655,7 +655,17 @@ class ReceivedSoap12Envelope(Soap12EnvelopeBase):
                 self.msgNode = self.bodyNode[0]
             except IndexError: # body has no content, this can happen
                 self.msgNode = None
-        
+
+    def get_payload(self):
+        """
+        :return: all child elements of boxy Node
+        """
+        return self._bodyNode[:]
+
+    def payload_as_string(self):
+        """for logging, etc."""
+        elements = self.get_payload()
+        return '\n'.join([etree_.tostring(elem) for elem in elements])
 
     def as_xml(self, pretty=False):
         tmp = BytesIO()

@@ -10,7 +10,7 @@ class HostedServiceClient(object):
     """ Base class of clients that call hosted services of a dpws device."""
     VALIDATE_MEX = False # workaraound as long as validation error due to missing dpws schema is not solved
     subscribeable_actions = tuple()
-    def __init__(self, soapClient, dpws_hosted, porttype, validate, sdc_definitions, bicepsParser, log_prefix=''):
+    def __init__(self, soapClient, envelope_creator, dpws_hosted, porttype, validate, sdc_definitions, bicepsParser, log_prefix=''):
         '''
         @param simple_xml_hosted_node: a "Hosted" node in a simplexml document
         '''
@@ -25,7 +25,7 @@ class HostedServiceClient(object):
         self.soapClient = soapClient
         self.log_prefix = log_prefix
         self._mdib_wref = None
-        self._envelope_creator = SoapEnvelopeCreator(sdc_definitions, self._logger)
+        self._envelope_creator = envelope_creator  # SoapEnvelopeCreator(sdc_definitions, self._logger)
         self.predefined_actions = {} # calculated actions for subscriptions
         for s in self.subscribeable_actions:
             self.predefined_actions[s] = self._envelope_creator.get_action_string(porttype, s)
@@ -43,7 +43,6 @@ class HostedServiceClient(object):
         if mdib is not None and self._mdib_wref is not None:
             raise RuntimeError('Client "{}" has already an registered mdib'.format(self.porttype))
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
-        self._envelope_creator.register_mdib(mdib)
 
     def setOperationsManager(self, operationsManager):
         self._operationsManager = operationsManager
