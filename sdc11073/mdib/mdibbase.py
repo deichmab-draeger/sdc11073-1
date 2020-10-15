@@ -3,7 +3,7 @@ import time
 from threading import Lock
 from lxml import etree as etree_
 from .. import observableproperties as properties
-from .. import namespaces
+from ..namespaces import DocNamespaceHelper, msgTag, domTag
 from .. import pmtypes
 from .. import multikey
 from ..xmlparsing import BicepsSchema
@@ -60,7 +60,6 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         _MultikeyWithVersionLookup.__init__(self)
         self.addIndex('handle', multikey.UIndexDefinition(lambda obj: obj.handle))
         self.addIndex('parentHandle', multikey.IndexDefinition(lambda obj: obj.parentHandle))
-        self.addIndex('nodeName', multikey.IndexDefinition(lambda obj: obj.nodeName))
         self.addIndex('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE))
         self.addIndex('ConditionSignaled', multikey.IndexDefinition(lambda obj: obj.ConditionSignaled, indexNoneValues=False))
         # an index to find all alert conditions for a metric (AlertCondition is the only class that has a
@@ -181,7 +180,7 @@ class MdibContainer(object):
         self.sdc_definitions = sdc_definitions
         self.bicepsSchema = BicepsSchema(sdc_definitions) # used for validation
         self._logger = None # must to be instantiated by derived class
-        self.nsmapper = namespaces.DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file  
+        self.nsmapper = DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file
         self.mdibVersion = 0
         self.sequenceId = ''  # needs to be set to a reasonable value by derived class 
         self.log_prefix = ''
@@ -264,7 +263,7 @@ class MdibContainer(object):
                 contextByHandle[sc.descriptorHandle] = sc
             elif sc.isSystemContextState or sc.isMultiState:
                 pass   # ignoring for now
-            elif sc.NODETYPE == namespaces.domTag('ScoState'): # special case Draft6 ScoState (is not a component state)
+            elif sc.NODETYPE == domTag('ScoState'): # special case Draft6 ScoState (is not a component state)
                 pass  # this cannot be updated anyway over the network, but handle it here to avoid runtime error
             else:
                 raise RuntimeError('handling of {} has been forgotten to implement!'.format(sc.__class__.__name__))
@@ -313,7 +312,7 @@ class MdibContainer(object):
         '''
         doc_nsmap = self.nsmapper.docNssmap
         rootContainers = self.descriptions.parentHandle.get(None) or []
-        mdDescriptionNode = etree_.Element(namespaces.domTag('MdDescription'),
+        mdDescriptionNode = etree_.Element(domTag('MdDescription'),
                                            attrib={'DescriptionVersion':str(self.mdDescriptionVersion)},
                                            nsmap=doc_nsmap)
 
@@ -325,7 +324,7 @@ class MdibContainer(object):
                 connectDescriptors(childContainer, node)
 
         for rootContainer in rootContainers:
-            n = rootContainer.mkDescriptorNode()
+            n = rootContainer.mkDescriptorNode(tag=domTag('Mds'))
             mdDescriptionNode.append(n)
             connectDescriptors(rootContainer, n)
         return mdDescriptionNode
@@ -337,25 +336,26 @@ class MdibContainer(object):
         @return: an etree_ node
         '''
         doc_nsmap = self.nsmapper.docNssmap
-        mdibNode = etree_.Element(namespaces.msgTag('Mdib'), nsmap=doc_nsmap)
+        mdibNode = etree_.Element(msgTag('Mdib'), nsmap=doc_nsmap)
         mdibNode.set('MdibVersion', str(self.mdibVersion))
         mdibNode.set('SequenceId', self.sequenceId)
         mdDescriptionNode = self._reconstructMdDescription()
         mdibNode.append(mdDescriptionNode)
 
         # add a list of states
-        mdStateNode = etree_.SubElement(mdibNode, namespaces.domTag('MdState'),
+        mdStateNode = etree_.SubElement(mdibNode, domTag('MdState'),
                                         attrib={'StateVersion':str(self.mdStateVersion)},
                                         nsmap=doc_nsmap)
+        tag = domTag('State')
         for stateContainer in self.states.objects:
             try:
-                tmpNode = stateContainer.mkStateNode()
+                tmpNode = stateContainer.mkStateNode(tag)
                 mdStateNode.append(tmpNode)
             except RuntimeError:
                 self._logger.error('State {} has no descriptorContainer', stateContainer.descriptorHandle)
         if addContextStates:
             for stateContainer in self.contextStates.objects:
-                tmpNode = stateContainer.mkStateNode()
+                tmpNode = stateContainer.mkStateNode(tag)
                 mdStateNode.append(tmpNode)
 
         return mdibNode
@@ -467,7 +467,7 @@ class MdibContainer(object):
     def mkStateContainerFromDescriptor(self, descriptorContainer):
         cls = self.getStateClsForDescriptor(descriptorContainer)
         if cls is None:
-            raise TypeError('No state container class for descr={}, name={}, type={}'.format(descriptorContainer.__class__.__name__, descriptorContainer.nodeName, descriptorContainer.nodeType))
+            raise TypeError('No state container class for descr={}, name={}, type={}'.format(descriptorContainer.__class__.__name__, descriptorContainer.NODETYPE, descriptorContainer.nodeType))
         return cls(self.nsmapper, descriptorContainer)
 
 
@@ -483,7 +483,7 @@ class MdibContainer(object):
                          'SetMetricStateOperationDescriptor',
                          'SetComponentStateOperationDescriptor',
                          'SetAlertStateOperationDescriptor'):
-            result.extend(self.descriptions.NODETYPE.get(namespaces.domTag(nodeType), []))
+            result.extend(self.descriptions.NODETYPE.get(domTag(nodeType), []))
         return result
 
 
@@ -562,7 +562,7 @@ class MdibContainer(object):
         deletedStatesByHandle = {}
         for descriptorContainer in descriptorContainers:
             self._logger.debug('rm Descriptor node {} handle {}',
-                               descriptorContainer.nodeName, descriptorContainer.handle)
+                               descriptorContainer.NODETYPE, descriptorContainer.handle)
             self.descriptions.removeObject(descriptorContainer)
             deletedDescriptorByHandle[descriptorContainer.handle] = descriptorContainer
             for m_key in (self.states, self.contextStates):
@@ -584,3 +584,7 @@ class MdibContainer(object):
         if descriptorContainer is not None:
             allDescriptors = self.getAllDescriptorsInSubTree(descriptorContainer)
             self._rmDescriptorsAndStates(allDescriptors)
+
+_tagname_lookup = {
+    (None, domTag('MdsDescriptor')): domTag('Mds')
+}

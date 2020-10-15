@@ -7,7 +7,6 @@ from ..namespaces import QN_TYPE
 
 class ContainerBase(object):
     NODETYPE = None   # overwrite in derived classes! determines the value of xsi:Type attribute, must be a etree_.QName object
-    NODENAME = None
     node = properties.ObservableProperty()
 
     # every class with containerproperties must provice a list of property names.
@@ -17,15 +16,20 @@ class ContainerBase(object):
     # This is according to the inheritance in BICEPS xml schema
     _props = tuple()  # empty tuple, this base class has no properties
 
-    def __init__(self, nsmapper, node=None):
+    # def __init__(self, nsmapper, node=None):
+    #     self.nsmapper = nsmapper
+    #     self.node = node
+    #     if node is None:
+    #         # initialize all ContainerProperties
+    #         for dummy_name, cprop in self._sortedContainerProperties():
+    #             cprop.initInstanceData(self)
+    #     else:
+    #         self._updateFromNode(node)
+    def __init__(self, nsmapper):
         self.nsmapper = nsmapper
-        self.node = node
-        if node is None:
-            # initialize all ContainerProperties
-            for dummy_name, cprop in self._sortedContainerProperties():
-                cprop.initInstanceData(self)
-        else:
-            self._updateFromNode(node)
+        self.node = None
+        for dummy_name, cprop in self._sortedContainerProperties():
+            cprop.initInstanceData(self)
 
 
     def getActualValue(self, attr_name):
@@ -33,24 +37,18 @@ class ContainerBase(object):
         return getattr(self.__class__, attr_name).getActualValue(self)
 
 
-    def mkNode(self, tag=None, setXsiType=False):
+    def mkNode(self, tag, setXsiType=False):
         '''
         create a etree node from instance data
-        :param tag: tag of the newly created node, defaults to self.NODENAME
+        :param tag: tag of the newly created node
         :return: etree node
         '''
-        myTag = tag or self.NODENAME
-        node = etree_.Element(myTag, nsmap=self.nsmapper.docNssmap)
+        node = etree_.Element(tag, nsmap=self.nsmapper.docNssmap)
         self._updateNode(node, setXsiType)
         return node
 
 
     def _updateNode(self, node, setXsiType=False):
-        '''
-        create a etree node from instance data
-        :param tag: tag of the newly created node, defaults to self.NODENAME
-        :return: etree node
-        '''
         if setXsiType and self.NODETYPE is not None:
             node.set(QN_TYPE, self.nsmapper.docNameFromQName(self.NODETYPE))
         for dummy_name, prop in self._sortedContainerProperties():
@@ -64,6 +62,15 @@ class ContainerBase(object):
         # update all ContainerProperties
         for dummy_name, cprop in self._sortedContainerProperties():
             cprop.updateFromNode(self, node)
+
+    def _update_from_other(self, other_container, skipped_properties):
+        # update all ContainerProperties
+        if skipped_properties is None:
+            skipped_properties = []
+        for prop_name, _ in self._sortedContainerProperties():
+            if prop_name not in skipped_properties:
+                new_value = getattr(other_container, prop_name)
+                setattr(self, prop_name, copy.copy(new_value))
 
 
     def mkCopy(self):
@@ -108,5 +115,5 @@ class ContainerBase(object):
         return ret
 
     def __repr__(self):
-        return '{} name="{}" type={}'.format(self.__class__.__name__, self.NODENAME, self.NODETYPE)
+        return '{} type={}'.format(self.__class__.__name__, self.NODETYPE.localname)
 

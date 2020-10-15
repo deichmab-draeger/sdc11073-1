@@ -536,7 +536,7 @@ class GetService(DPWSPortTypeImpl):
 
             mdStateNode = etree_.Element(msgTag('MdState'), attrib=None, nsmap=self._mdib.nsmapper.docNssmap)
             for stateContainer in stateContainers:
-                mdStateNode.append(stateContainer.mkStateNode())
+                mdStateNode.append(stateContainer.mkStateNode(domTag('State')))
 
             getMdStateResponseNode.append(mdStateNode)
             responseSoapEnvelope.addBodyElement(getMdStateResponseNode)
@@ -981,11 +981,11 @@ class ContextService(DPWSPortTypeImpl):
                         for st in tmp:
                             contextStateContainersLookup[st.Handle] = st
                 contextStateContainers = contextStateContainersLookup.values()
+            tag = msgTag('ContextState')
             if contextStateContainers:
                 for contextStateContainer in contextStateContainers:
-                    node = contextStateContainer.mkStateNode()
+                    node = contextStateContainer.mkStateNode(tag)
                     getContextStatesResponseNode.append(node)
-                    node.tag = msgTag('ContextState')
         response.addBodyElement(getContextStatesResponseNode)
         self._logger.debug('_onGetContextStates returns {}', lambda: response.as_xml(pretty=False))
         response.validateBody(self._bmmSchema)

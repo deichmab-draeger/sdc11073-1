@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-from __future__ import print_function 
 import unittest
 import time
 import logging
@@ -30,14 +28,12 @@ class TestDeviceWaveform(unittest.TestCase):
 
         # this structure is not realistic, but sufficient for what we need here.
         desc = dc.MdsDescriptorContainer(self.mdib.nsmapper,
-                                         nodeName=sdc11073.namespaces.domTag('Mds'),
                                          handle='42',
                                          parentHandle=None,
                                          )
         self.mdib.descriptions.addObject(desc)
         for h in HANDLES:
             desc = dc.RealTimeSampleArrayMetricDescriptorContainer(self.mdib.nsmapper,
-                                                                   sdc11073.namespaces.domTag('Metric'),
                                                                    handle=h,
                                                                    parentHandle='42',
                                                                    )

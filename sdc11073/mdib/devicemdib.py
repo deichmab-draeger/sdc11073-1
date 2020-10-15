@@ -570,7 +570,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 for value in mgr.descriptorUpdates.values():
                     origDescriptor, newDescriptor = value.old, value.new
                     if newDescriptor is not None:
-                        newDescriptor.updateNode(setXsiType=True)
+                        # newDescriptor.updateNode(setXsiType=True)
                         # DescriptionModificationReport also contains the states that are related to the descriptors.
                         # => if there is one, update its DescriptorVersion and add it to list of states that shall be sent
                         # (Assuming that context descriptors (patient, location) are never changed,
@@ -774,15 +774,14 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 self._currentLocation.Validator = validators
   
 
-    def _createDescriptorContainer(self, cls, nodeName, handle, parentHandle, codedValue, safetyClassification):
+    def _createDescriptorContainer(self, cls, handle, parentHandle, codedValue, safetyClassification):
         obj = cls(nsmapper=self.nsmapper, 
-                  nodeName=nodeName, 
-                  handle=handle, 
+                  handle=handle,
                   parentHandle=parentHandle,
                   )
         obj.SafetyClassification = safetyClassification
         obj.Type = codedValue
-        obj.updateNode()
+        # obj.updateNode()
         return obj
 
 
@@ -846,7 +845,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         obj.Unit = unit
         obj.MetricAvailability = metricAvailability
         obj.MetricCategory = metricCategory
-        obj.updateNode()
+        # obj.updateNode()
         if self._current_transaction is not None:
             self._current_transaction.createDescriptor(obj)
         else:
@@ -873,7 +872,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         obj.MetricAvailability = metricAvailability
         obj.MetricCategory = metricCategory
         obj.AllowedValue = allowedValues
-        obj.updateNode()
+        # obj.updateNode()
         if self._current_transaction is not None:
             self._current_transaction.createDescriptor(obj)
         else:
@@ -893,7 +892,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         :return: the created object
         '''
         cls = self.getDescriptorContainerClass( domTag('ClockDescriptor'))
-        obj = self._createDescriptorContainer(cls, domTag('Clock'), handle, parentHandle, codedValue, safetyClassification)
+        obj = self._createDescriptorContainer(cls, handle, parentHandle, codedValue, safetyClassification)
         if self._current_transaction is not None:
             self._current_transaction.createDescriptor(obj)
         else:

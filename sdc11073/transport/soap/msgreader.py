@@ -119,6 +119,7 @@ class MessageReader(object):
         else:
             nodeType = etree_.QName(node.tag)
         cls = self._mdib.getDescriptorContainerClass(nodeType)
+        #return self.descr_from_node(cls, self._mdib.nsmapper, node, parentHandle)
         return cls.fromNode(self._mdib.nsmapper, node, parentHandle)
 
 
@@ -151,7 +152,9 @@ class MessageReader(object):
         if node.tag != namespaces.domTag('State'):
             node = copy.copy(node)  # make a copy, do not modify the original report
             node.tag = namespaces.domTag('State')
-        return cls(self._mdib.nsmapper, descriptorContainer, node)
+        state = cls(self._mdib.nsmapper, descriptorContainer)
+        self.update_state_from_node(state, node)
+        return state
 
 
     def _mkStateContainersFromReportPart(self, reportPartNode):
@@ -275,3 +278,42 @@ class MessageReader(object):
                 sc = self.mkStateContainerFromNode(stateNode, additionalDescriptorContainers=descriptors[modificationType][0])
                 descriptors[modificationType][1].append(sc)
         return descriptors_list
+
+
+    # @classmethod
+    # def descr_from_node(cls, descr_cls, nsmapper, node, parentHandle):
+    #     descr = descr_cls(nsmapper,
+    #                       handle=None,  # will be determined in constructor from node value
+    #                       parentHandle=parentHandle)
+    #     cls._update_from_node(descr, node)
+    #     return descr
+
+    @classmethod
+    def update_state_from_node(cls, state, node):
+        descriptorHandle = node.get('DescriptorHandle')
+        if state.descriptorHandle is not None and descriptorHandle != state.descriptorHandle:
+            raise RuntimeError(
+                'Update from a node with different descriptor handle is not possible! Have "{}", got "{}"'.format(
+                    state.descriptorHandle, descriptorHandle))
+
+        if state.isMultiState:
+            node_handle = node.get('Handle')
+            if state._handle_is_generated:
+                state.Handle = node_handle
+                state._handle_is_generated = False
+            else:
+                if node_handle != state.Handle:
+                    raise RuntimeError(
+                        'Update from a node with different handle is not possible! Have "{}", got "{}"'.format(
+                            state.Handle, node_handle))
+
+        cls._update_from_node(state, node)
+        state.node = node
+
+    @staticmethod
+    def _update_from_node(container, node):
+        ''' update members.
+        '''
+        # update all ContainerProperties
+        for dummy_name, cprop in container._sortedContainerProperties():
+            cprop.updateFromNode(container, node)

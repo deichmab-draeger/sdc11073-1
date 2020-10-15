@@ -1,12 +1,14 @@
 from lxml import etree as etree_
 import weakref
-from ...namespaces import msgTag, QN_TYPE, nsmap, DocNamespaceHelper
+import copy
+from ...namespaces import msgTag, wseTag, QN_TYPE, DocNamespaceHelper
 from ...namespaces import Prefix_Namespace as Prefix
 from ...namespaces import nsmap
+from ... import isoduration
 from . import soapenvelope
 from .safety import SafetyInfoHeader
 
-class SoapEnvelopeCreator:
+class SoapMessageFactory:
 
     def __init__(self, sdc_definitions, logger):
         self._logger = logger
@@ -29,7 +31,7 @@ class SoapEnvelopeCreator:
         :param mdib: the current mdib
         """
         if mdib is not None and self._mdib_wref is not None:
-            raise RuntimeError('SoapEnvelopeCreator has already an registered mdib')
+            raise RuntimeError('SoapMessageFactory has already an registered mdib')
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
 
     def mk_getdescriptor_envelope(self, to, port_type, requested_handles):
@@ -266,6 +268,64 @@ class SoapEnvelopeCreator:
         """
         method = 'GetSupportedLanguages'
         return self._mk_get_method_envelope(to, port_type, method)
+
+    def mk_subscribe_envelope(self, to,
+                              notifyto_url, notifyto_identifier,
+                              endto_url, endto_identifier,
+                              expire_minutes, subscribe_filter):
+        soap_envelope = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA,Prefix.WSE))
+        soap_envelope.setAddress(soapenvelope.WsAddress(
+            action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Subscribe',
+            to=to))
+
+        notify_to = soapenvelope.WsaEndpointReferenceType(notifyto_url,
+                                                          referenceParametersNode=[notifyto_identifier])
+        end_to = soapenvelope.WsaEndpointReferenceType(endto_url,
+                                                       referenceParametersNode=[endto_identifier])
+
+        body = soapenvelope.WsSubscribe(notifyTo=notify_to,
+                                        endTo=end_to,
+                                        expires=expire_minutes*60,
+                                        filter_=subscribe_filter)
+        soap_envelope.addBodyObject(body)
+        return soap_envelope
+
+    def mk_renew_envelope(self, to, dev_reference_param, expire_minutes):
+        soap_envelope = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
+        soap_envelope.setAddress(soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Renew',
+                                          to=to))
+        self._add_device_references(soap_envelope, dev_reference_param)
+        renew_node = etree_.Element(wseTag('Renew'), nsmap=Prefix.partialMap(Prefix.WSE))
+        expires_node = etree_.SubElement(renew_node, wseTag('Expires'), nsmap=Prefix.partialMap(Prefix.WSE))
+        expires_node.text = isoduration.durationString(expire_minutes * 60)
+        soap_envelope.addBodyElement(renew_node)
+        return soap_envelope
+
+    def mk_getstatus_envelope(self, to, dev_reference_param):
+        soap_envelope = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA,Prefix.WSE))
+        soap_envelope.setAddress(soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatus',
+                                                        to=to))
+        self._add_device_references(soap_envelope, dev_reference_param)
+        body_node = etree_.Element(wseTag('GetStatus'))
+        soap_envelope.addBodyElement(body_node)
+        return soap_envelope
+
+    def mk_unsubscribe_envelope(self, to, dev_reference_param):
+        soap_envelope = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA,Prefix.WSE))
+        soap_envelope.setAddress(soapenvelope.WsAddress(
+            action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Unsubscribe', to=to))
+        self._add_device_references(soap_envelope, dev_reference_param)
+        soap_envelope.addBodyElement(etree_.Element(wseTag('Unsubscribe')))
+        return soap_envelope
+
+    def _add_device_references(self, soap_envelope, dev_reference_param):
+        ''' add references for requests to device (renew, getstatus, unsubscribe)'''
+        if dev_reference_param is not None:
+            for e in dev_reference_param:
+                e_ = copy.copy(e)
+                # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
+                e_.set('IsReferenceParameter', 'true')
+                soap_envelope.addHeaderElement(e_)
 
     def _mk_get_method_envelope(self, to, port_type, method_name, params=None):
         body_node = etree_.Element(msgTag(method_name))

@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-from __future__ import print_function 
 import unittest
 import sdc11073
 import logging
@@ -54,7 +52,6 @@ class TestClientProxies(unittest.TestCase):
         for sdcClient in self._allclients:
             descriptorClass = sdcClient.sdc_definitions.dc.getContainerClass(sdc11073.namespaces.domTag('AlertSignalDescriptor'))
             descr = descriptorClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
-                                    nodeName='Helga',
                                     handle='123',
                                     parentHandle='456',
                                     )
@@ -74,7 +71,6 @@ class TestClientProxies(unittest.TestCase):
         for sdcClient in self._allclients:
             descriptorClass = sdcClient.sdc_definitions.dc.getContainerClass(sdc11073.namespaces.domTag('NumericMetricDescriptor'))
             descr = descriptorClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
-                                    nodeName='Helga',
                                     handle='123',
                                     parentHandle='456',
                                     )

@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-from __future__ import print_function
 import unittest
 import os
 import time
@@ -11,7 +9,8 @@ import sdc11073
 from sdc11073.sdcdevice import waveforms
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
-from sdc11073.transport.soap.soapenvelope import ReceivedSoap12Envelope, Soap12Envelope
+from sdc11073.transport.soap.soapenvelope import ReceivedSoap12Envelope
+from sdc11073.transport.soap.msgfactory import SoapMessageFactory
 
 mdibFolder = os.path.dirname(__file__)
 
@@ -109,7 +108,8 @@ class TestDeviceSubscriptions(unittest.TestCase):
             typesList=['Get'],
             serviceId=123)
         for sdcDevice in self._allDevices:
-            clSubscr = sdc11073.sdcclient.subscription._ClSubscription(dpwsHosted=hosted,
+            clSubscr = sdc11073.sdcclient.subscription._ClSubscription(SoapMessageFactory(None, None),
+                                                                       dpwsHosted=hosted,
                                                                        actions=[sdcDevice.mdib.sdc_definitions.Actions.EpisodicMetricReport],
                                                                        notification_url=notifyTo,
                                                                        endTo_url=endTo,
@@ -223,7 +223,8 @@ class TestDeviceSubscriptions(unittest.TestCase):
             typesList=['Get'],
             serviceId=123)
         for sdcDevice in self._allDevices:
-            clSubscr = sdc11073.sdcclient.subscription._ClSubscription(dpwsHosted=hosted,
+            clSubscr = sdc11073.sdcclient.subscription._ClSubscription(SoapMessageFactory(None, None),
+                                                                       dpwsHosted=hosted,
                                                                        actions=[sdcDevice.mdib.sdc_definitions.Actions.EpisodicMetricReport],
                                                                        notification_url=notifyTo,
                                                                        endTo_url=endTo,

@@ -1,6 +1,7 @@
 import time
 import uuid
 import sys
+import copy
 import inspect
 from .containerbase import ContainerBase
 from ..namespaces import domTag
@@ -9,7 +10,6 @@ from . import containerproperties as cp
 
 
 class AbstractStateContainer(ContainerBase):
-    NODENAME = domTag('State')
 
     # these class variables allow easy type-checking. Derived classes will set corresponding values to True
     isSystemContextState = False
@@ -30,23 +30,17 @@ class AbstractStateContainer(ContainerBase):
 
     stateVersion = StateVersion   # lower case for backwards compatibility
     
-    def __init__(self, nsmapper, descriptorContainer, node=None):
+    def __init__(self, nsmapper, descriptorContainer):
         self.descriptorContainer = descriptorContainer
         self.descriptorHandle = descriptorContainer.handle
-        super(AbstractStateContainer, self).__init__(nsmapper, node)
-
-        if node is None:
-            self.DescriptorVersion = descriptorContainer.DescriptorVersion
-
-    @property
-    def nodeName(self):
-        return self.NODENAME
+        super(AbstractStateContainer, self).__init__(nsmapper)
+        self.DescriptorVersion = descriptorContainer.DescriptorVersion
 
     def updateNode(self):
-        self.node = self.mkStateNode()
+        self.node = self.mkStateNode(domTag('State'))
 
 
-    def mkStateNode(self, tag=None, updateDescriptorVersion=True):
+    def mkStateNode(self, tag, updateDescriptorVersion=True):
         if updateDescriptorVersion:
             self.updateDescriptorVersion()
         node = super(AbstractStateContainer, self).mkNode(tag, setXsiType=True)
@@ -54,31 +48,11 @@ class AbstractStateContainer(ContainerBase):
         return node
 
 
-    def updateFromNode(self, node):
-        ''' update self.node with node, and set members.
-        Accept node only if descriptorHandle matches'''
-        descriptorHandle = node.get('DescriptorHandle')
-        if self.descriptorHandle is not None and descriptorHandle != self.descriptorHandle:
-            raise RuntimeError(
-                'Update from a node with different descriptor handle is not possible! Have "{}", got "{}"'.format(
-                    self.descriptorHandle, descriptorHandle))
-        super(AbstractStateContainer, self)._updateFromNode(node)
-        self.node = node
-
-    def updateFromOtherContainer(self, other, skippedProperties=None):
-        if other.__class__ != self.__class__:
-            raise RuntimeError('Update from a node with different type is not possible! Have "{}", got "{}"'.format(self.__class__.__name__, other.__class__.__name__))
+    def update_from_other_container(self, other, skipped_properties=None):
         if other.descriptorHandle != self.descriptorHandle:
             raise RuntimeError('Update from a node with different descriptor handle is not possible! Have "{}", got "{}"'.format(self.descriptorHandle, other.descriptorHandle))
-
-        # update all ContainerProperties
-        if skippedProperties is None:
-            skippedProperties = []
+        self._update_from_other(other, skipped_properties)
         self.node = other.node
-        for prop_name, _ in self._sortedContainerProperties():
-            if prop_name not in skippedProperties:
-                new_value = getattr(other, prop_name)
-                setattr(self, prop_name, new_value)
 
 
     def incrementState(self):
@@ -93,8 +67,6 @@ class AbstractStateContainer(ContainerBase):
             raise RuntimeError('State {} has no descriptorContainer'.format(self))
         if self.descriptorContainer.DescriptorVersion != self.DescriptorVersion:
             self.DescriptorVersion = self.descriptorContainer.DescriptorVersion
-
-
 
     def __repr__(self):
         return '{} descriptorHandle="{}" StateVersion={}'.format(self.__class__.__name__, self.descriptorHandle, self.StateVersion)
@@ -356,23 +328,26 @@ class AbstractMultiStateContainer(AbstractStateContainer):
     Handle = cp.NodeAttributeProperty('Handle') # required
     _props = ('Handle', )    
 
-    def __init__(self, nsmapper, descriptorContainer, node=None):
-        super(AbstractMultiStateContainer, self).__init__(nsmapper, descriptorContainer, node)
-        if node is None:
-            # auto- generate a handle
+    def __init__(self, nsmapper, descriptorContainer):
+        super(AbstractMultiStateContainer, self).__init__(nsmapper, descriptorContainer)
+        self.Handle = uuid.uuid4().hex  # might be preliminary
+        self._handle_is_generated = True
+
+    def update_from_other_container(self, other, skipped_properties=None):
+        #     Accept node only if descriptorHandle and Handle match
+        if self._handle_is_generated:
+            self.Handle = other.Handle
+            self._handle_is_generated = False
+        elif other.Handle != self.Handle:
+            raise RuntimeError(
+                   'Update from a node with different handle is not possible! Have "{}", got "{}"'.format(
+                    self.Handle, other.Handle))
+        super().update_from_other_container(other, skipped_properties)
+
+    def mkStateNode(self, tag, updateDescriptorVersion=True):
+        if self.Handle is None:
             self.Handle = uuid.uuid4().hex
-
-    def updateFromNode(self, node):
-        ''' update self.node with node, and set members.
-        Accept node only if descriptorHandle and Handle match'''
-        if self.Handle is not None: # if self.handle is None, this is an initial init from node, no check for equality.
-            handle = node.get('Handle')
-
-            if handle != self.Handle:
-                raise RuntimeError(
-                    'Update from a node with different handle is not possible! Have "{}", got "{}"'.format(
-                        self.Handle, handle))
-        super(AbstractMultiStateContainer, self).updateFromNode(node)
+        return super().mkStateNode(tag, updateDescriptorVersion)
 
     def __repr__(self):
         return '{} descriptorHandle="{}" handle="{}" type={}'.format(self.__class__.__name__, self.descriptorHandle, self.Handle, self.NODETYPE)

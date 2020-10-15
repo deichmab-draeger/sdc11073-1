@@ -3,7 +3,7 @@ import urllib
 from .. import loghelper
 from ..namespaces import DocNamespaceHelper
 from ..transport.soap.soapenvelope import ExtendedDocumentInvalid
-from ..transport.soap.envelopecreator import SoapEnvelopeCreator
+from ..transport.soap.msgfactory import SoapMessageFactory
 
 
 class HostedServiceClient(object):
@@ -25,7 +25,7 @@ class HostedServiceClient(object):
         self.soapClient = soapClient
         self.log_prefix = log_prefix
         self._mdib_wref = None
-        self._envelope_creator = envelope_creator  # SoapEnvelopeCreator(sdc_definitions, self._logger)
+        self._envelope_creator = envelope_creator  # SoapMessageFactory(sdc_definitions, self._logger)
         self.predefined_actions = {} # calculated actions for subscriptions
         for s in self.subscribeable_actions:
             self.predefined_actions[s] = self._envelope_creator.get_action_string(porttype, s)

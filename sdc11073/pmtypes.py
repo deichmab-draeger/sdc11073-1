@@ -39,6 +39,11 @@ class PropertyBasedPMType(object):
         for dummy, prop in self._sortedContainerProperties():
             prop.updateFromNode(self, node)
 
+    def update_from_other(self, other):
+        """copies the python values, no xml involved"""
+        for dummy, prop in self._sortedContainerProperties():
+            prop.update_from_other(self, other)
+
 
     def _sortedContainerProperties(self):
         '''

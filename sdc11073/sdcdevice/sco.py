@@ -102,19 +102,16 @@ class ScoOperationsRegistry(object):
         
         # find the Sco of the Mds, this will be the default sco for new operations
         mdsDescriptorContainer = mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
-        scos = mdib.descriptions.find(parentHandle=mdsDescriptorContainer.handle).find(nodeName=namespaces.domTag('Sco')).objects
+        # scos = mdib.descriptions.find(parentHandle=mdsDescriptorContainer.handle).find(nodeName=namespaces.domTag('Sco')).objects
+        scos = mdib.descriptions.find(parentHandle=mdsDescriptorContainer.handle).find(NODETYPE=namespaces.domTag('ScoDescriptor')).objects
         if len(scos) == 1:
             self._logger.info('found Sco node in mds, using it')
             self._mds_sco_descriptorContainer = scos[0]
         else:
             self._logger.info('not found Sco node in mds, creating it')
             # create sco and add to mdib
-            sco = etree_.Element(namespaces.domTag('Sco'), 
-                                 attrib={'DescriptorVersion': '1',
-                                         namespaces.QN_TYPE: '{}:ScoDescriptor'.format(mdib.nsmapper.domPrefix()),
-                                         'Handle': self._handle}, 
-                                 nsmap=mdib.nsmapper.docNssmap)
-            self._mds_sco_descriptorContainer = mdib_.descriptorcontainers.ScoDescriptorContainer.fromNode(mdib.nsmapper, sco, mdsDescriptorContainer.handle)
+            self._mds_sco_descriptorContainer = mdib_.descriptorcontainers.ScoDescriptorContainer(
+                mdib.nsmapper, self._handle, mdsDescriptorContainer.handle)
             mdib.descriptions.addObject(self._mds_sco_descriptorContainer)
 
 
@@ -234,11 +231,10 @@ class OperationDefinition(object):
         else:
             operationDescriptorClass = mdib.getDescriptorContainerClass(self._operationDescriptorQName)
             self._descriptorContainer = operationDescriptorClass(mdib.nsmapper,
-                                                                      namespaces.domTag('Operation'),
                                                                       self._handle, parentDescriptorContainer.handle,
                                                                  )
             self._initOperationDescriptorContainer()
-            self._descriptorContainer.updateNode()
+            # self._descriptorContainer.updateNode()
             mdib.descriptions.addObject(self._descriptorContainer)
         
         self._operationStateContainer = self._mdib.states.descriptorHandle.getOne(self._handle, allowNone=True)

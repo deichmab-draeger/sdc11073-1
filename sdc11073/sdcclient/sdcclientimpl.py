@@ -27,7 +27,7 @@ from ..definitions_base import ProtocolsRegistry
 from ..definitions_sdc import SDC_v1_Definitions
 from ..transport.soap import soapenvelope
 from ..transport.soap import soapclient
-from ..transport.soap.envelopecreator import SoapEnvelopeCreator
+from ..transport.soap.msgfactory import SoapMessageFactory
 
 def _mkSoapClient(scheme, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
                   requestEncodings=None, chunked_requests=False):
@@ -84,7 +84,7 @@ class HostedServiceDescription(object):
         return None if not self._validate else self._bicepsSchema.mexSchema
 
     def readMetadata(self, soap_client):
-        soap_envelope = SoapEnvelopeCreator.mk_getmetadata_envelope(self._endpoint_address)
+        soap_envelope = SoapMessageFactory.mk_getmetadata_envelope(self._endpoint_address)
         if self.VALIDATE_MEX:
             soap_envelope.validateBody(self._mexSchema)
         endpoint_envelope = soap_client.postSoapEnvelopeTo(self._url.path,
@@ -244,7 +244,7 @@ class SdcClient(object):
         self.peerCertificate = None
         self.all_subscribed = False
 
-        self._envelope_creator = SoapEnvelopeCreator(self.sdc_definitions, self._logger)
+        self._envelope_creator = SoapMessageFactory(self.sdc_definitions, self._logger)
 
 
 
@@ -354,7 +354,10 @@ class SdcClient(object):
         self._startEventSink(async_dispatch)
         
         # start subscription manager
-        self._subscriptionMgr = subscription.SubscriptionManager(self._notificationsDispatcherThread.base_url, log_prefix=self.log_prefix, checkInterval=subscriptionsCheckInterval)
+        self._subscriptionMgr = subscription.SubscriptionManager(self._envelope_creator,
+                                                                 self._notificationsDispatcherThread.base_url,
+                                                                 log_prefix=self.log_prefix,
+                                                                 checkInterval=subscriptionsCheckInterval)
         self._subscriptionMgr.start()
 
         if notSubscribedActions is None:

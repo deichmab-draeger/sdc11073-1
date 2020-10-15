@@ -1,11 +1,10 @@
-from __future__ import absolute_import
-from __future__ import print_function 
 import unittest
 import logging
 from lxml import etree as etree_
 import sdc11073
 from sdc11073 import namespaces
 from sdc11073 import definitions_sdc
+from sdc11073.transport.soap.msgreader import MessageReader
 
 #pylint: disable=protected-access
 
@@ -198,6 +197,8 @@ class TestClientWaveform(unittest.TestCase):
                               'Handle':handle}
                 element = etree_.Element('Metric', attrib=attributes, nsmap=sdc11073.namespaces.nsmap)
                 clientmdib.descriptions.addObject(sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.fromNode(clientmdib.nsmapper, element, None)) # None = no parent handle
+                #clientmdib.descriptions.addObject(MessageReader.descr_from_node(sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer, clientmdib.nsmapper, element, None)) # None = no parent handle
+
             soapenvelope = sdc11073.transport.soap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
             cl._onWaveFormReport(soapenvelope)
             

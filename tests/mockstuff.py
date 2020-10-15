@@ -1,7 +1,7 @@
 import threading
 import logging
 import os.path
-from six.moves import urllib
+import urllib
 from sdc11073.transport.soap.soapenvelope import Soap12Envelope, DPWSThisModel, DPWSThisDevice
 from sdc11073.sdcdevice.subscriptionmgr import _DevSubscription
 from sdc11073.mdib import DeviceMdibContainer
@@ -109,7 +109,7 @@ class SomeDevice(SdcDevice):
         mdsDescriptor.ModelName.append(pmtypes.LocalizedText(model.modelName[None]))
         mdsDescriptor.SerialNumber.append(pmtypes.ElementWithTextOnly('ABCD-1234'))
         mdsDescriptor.ModelNumber = '0.99'
-        mdsDescriptor.updateNode()
+        # mdsDescriptor.updateNode()
         super(SomeDevice, self).__init__(wsdiscovery, my_uuid, model, device, deviceMdibContainer, validate,
                                          # registerDefaultOperations=True,
                                          sslContext=sslContext, logLevel=logLevel, log_prefix=log_prefix,

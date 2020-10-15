@@ -768,14 +768,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cls = sdcDevice.mdib.getDescriptorContainerClass(namespaces.domTag('SetMetricStateOperationDescriptor'))
         myCode = pmtypes.CodedValue(99999)
         setMetricStateOperationDescriptorContainer = sdcDevice.mdib._createDescriptorContainer(cls,
-                                                                                               namespaces.domTag('Operation'),
                                                                                               'HANDLE_FOR_MY_TEST',
                                                                                               scoDescriptors[0].handle,
                                                                                               myCode,
                                                                                               'Inf')
         setMetricStateOperationDescriptorContainer.OperationTarget = '0x34F001D5'
         setMetricStateOperationDescriptorContainer.Type = pmtypes.CodedValue(999998)
-        setMetricStateOperationDescriptorContainer.updateNode()
+        # setMetricStateOperationDescriptorContainer.updateNode()
         sdcDevice.mdib.descriptions.addObject(setMetricStateOperationDescriptorContainer)
         op = sdcDevice.product_roles.metric_provider.makeOperationInstance(setMetricStateOperationDescriptorContainer)
         sdcDevice.scoOperationsRegistry.registerOperation(op)
@@ -802,7 +801,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertAlmostEqual(updatedMetricState.LifeTimePeriod, newLifeTimePeriod)
 
 
-    def test_setComponentState_SDC(self):
+    def test_setComponentState(self):
         sdcClient = self.sdcClient_Final
         sdcDevice = self.sdcDevice_Final
 
@@ -812,7 +811,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cls = sdcDevice.mdib.getDescriptorContainerClass(namespaces.domTag('SetComponentStateOperationDescriptor'))
         myCode = pmtypes.CodedValue(99999)
         setComponentStateOperationDescriptorContainer = sdcDevice.mdib._createDescriptorContainer(cls,
-                                                                                namespaces.domTag('Operation'),
                                                                                 'HANDLE_FOR_MY_TEST',
                                                                                 scoDescriptors[0].handle,
                                                                                 myCode,
@@ -1048,12 +1046,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
             #test creating a descriptor
             coll = observableproperties.SingleValueCollector(sdcClient, 'descriptionModificationReport')  # wait for the next DescriptionModificationReport
             new_handle = 'a_generated_descriptor'
-            node_name = namespaces.domTag('NumericMetricDescriptor')
-            cls = sdcDevice.mdib.getDescriptorContainerClass(node_name)
+            node_type = namespaces.domTag('NumericMetricDescriptor')
+            cls = sdcDevice.mdib.getDescriptorContainerClass(node_type)
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 newDescriptorContainer = cls(nsmapper=sdcDevice.mdib.nsmapper, 
-                                             nodeName=node_name, 
-                                             handle=new_handle, 
+                                             handle=new_handle,
                                              parentHandle=descriptorContainer.parentHandle,
                                              )
                 newDescriptorContainer.Type = pmtypes.CodedValue('12345')
