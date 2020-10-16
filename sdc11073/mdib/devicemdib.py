@@ -480,6 +480,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         self.preCommitHandler = None # preCommitHandler can modify transaction if needed before it is committed
         self.postCommitHandler = None # postCommitHandler can modify mdib if needed after it is committed
 
+        self._msg_reader = None#msgreader.MessageReader(self._logger)
+
     @contextmanager
     def mdibUpdateTransaction(self, setDeterminationTime=True):
         #pylint: disable=protected-access
@@ -749,6 +751,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
     
     def setSdcDevice(self, sdcDevice):
         self._sdcDevice = sdcDevice
+        self._msg_reader = sdcDevice.msg_reader
 
 
     def setLocation(self, sdcLocation, validators=None):
@@ -923,8 +926,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         :param mdsNode: a node representing data of a complete mds
         :return: None
         '''
-        msg_reader = msgreader.MessageReader(self)
-        descriptorContainers = msg_reader.readMdDescription(mdsNode)
+        descriptorContainers = self._msg_reader.readMdDescription(mdsNode, self)
         if self._current_transaction is not None:
             for descr in descriptorContainers:
                 self._current_transaction.createDescriptor(descr)
@@ -932,7 +934,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             for descr in descriptorContainers:
                 self.descriptions.addObject(descr)
 
-        stateContainers = msg_reader.readMdState(mdsNode, additionalDescriptorContainers=descriptorContainers)
+        stateContainers = self._msg_reader.readMdState(mdsNode, self, additionalDescriptorContainers=descriptorContainers)
         for s in stateContainers:
             self.addState(s)
         self.mkStateContainersforAllDescriptors()
@@ -1070,15 +1072,15 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             raise ValueError('cannot create instance, no known BICEPS schema version identified')
 
         mdib = cls(protocol_definition, log_prefix=log_prefix)
-        root =  msgreader.MessageReader.getMdibRootNode(mdib.sdc_definitions, xml_text)
+        root = msgreader.MessageReader.getMdibRootNode(mdib.sdc_definitions, xml_text)
         mdib.bicepsSchema.bmmSchema.assertValid(root)
 
         mdib.nsmapper.useDocPrefixes(root.nsmap)
-        msg_reader = msgreader.MessageReader(mdib)
+        msg_reader = msgreader.MessageReader(mdib._logger)
         # first make descriptions and add them to mdib, and then make states (they need already existing descriptions)
-        descriptorContainers = msg_reader.readMdDescription(root)
+        descriptorContainers = msg_reader.readMdDescription(root, mdib)
         mdib.addDescriptionContainers(descriptorContainers)
-        stateContainers = msg_reader.readMdState(root)
+        stateContainers = msg_reader.readMdState(root, mdib)
         mdib.addStateContainers(stateContainers)
 
         if createLocationContextDescr or createPatientContextDescr:

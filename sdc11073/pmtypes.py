@@ -83,6 +83,9 @@ class PropertyBasedPMType(object):
     def __ne__(self, other):
         return not self == other
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self._sortedContainerProperties()})'
+
     @classmethod
     def fromNode(cls, node):
         ''' default fromNode Constructor that provides no arguments for class __init__'''
@@ -127,7 +130,6 @@ class LocalizedText(PropertyBasedPMType):
         self.Ref = ref
         self.Version = version
         self.TextWidth = textWidth
-
 
     @classmethod
     def fromNode(cls, node):

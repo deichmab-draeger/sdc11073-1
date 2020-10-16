@@ -3,7 +3,7 @@ import weakref
 import copy
 from ...namespaces import msgTag, wseTag, QN_TYPE, DocNamespaceHelper
 from ...namespaces import Prefix_Namespace as Prefix
-from ...namespaces import nsmap
+from ...namespaces import nsmap, domTag
 from ... import isoduration
 from . import soapenvelope
 from .safety import SafetyInfoHeader
@@ -53,6 +53,27 @@ class SoapMessageFactory:
         method = 'GetMdib'
         return self._mk_get_method_envelope(to, port_type, method)
 
+    def mk_getmdib_response_envelope(self, request, mdib, include_contextstates):
+        nsmapper = mdib.nsmapper
+        responseSoapEnvelope = soapenvelope.Soap12Envelope(
+            nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
+        replyAddress = request.address.mkReplyAddress(action=self._getActionString(mdib.sdc_definitions, 'GetMdibResponse'))
+        responseSoapEnvelope.addHeaderObject(replyAddress)
+        if include_contextstates:
+            mdibNode = mdib.reconstructMdibWithContextStates()
+        else:
+            mdibNode = mdib.reconstructMdib()
+        mdibVersionString = mdibNode.get('MdibVersion') # use same version a in mdib node for response
+        sequenceIdString = mdibNode.get('SequenceId')
+
+        getMdibResponseNode = etree_.Element(msgTag('GetMdibResponse'), nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+        if mdibVersionString:
+            getMdibResponseNode.set('MdibVersion', mdibVersionString)
+        getMdibResponseNode.set('SequenceId', sequenceIdString)
+        getMdibResponseNode.append(mdibNode)
+        responseSoapEnvelope.addBodyElement(getMdibResponseNode)
+        return responseSoapEnvelope
+
     def mk_getmddescription_envelope(self, to, port_type, requested_handles=None):
         """
         :param to: to-field value in address
@@ -63,6 +84,37 @@ class SoapMessageFactory:
         method = 'GetMdDescription'
         return self._mk_get_method_envelope(to, port_type, method, params=_handles2params(requested_handles))
 
+
+    def mk_getmddescription_response_envelope(self, request, mdib, requestedHandles):
+        includeMds = True if len(requestedHandles) == 0 else False  # if we have handles, we need to check them
+        for h in requestedHandles:
+            if mdib.descriptions.handle.getOne(h, allowNone=True) is not None:
+                includeMds = True
+                break
+        my_namespaces = mdib.nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.MSG, Prefix.PM)
+        responseSoapEnvelope = soapenvelope.Soap12Envelope(my_namespaces)
+        replyAddress = request.address.mkReplyAddress(action=self._getActionString(mdib.sdc_definitions, 'GetMdDescriptionResponse'))
+        responseSoapEnvelope.addHeaderObject(replyAddress)
+
+        getMdDescriptionResponseNode = etree_.Element(msgTag('GetMdDescriptionResponse'),
+                                                      nsmap=nsmap)
+
+        if includeMds:
+            mdDescriptionNode, mdibVersion = mdib.reconstructMdDescription()
+            mdDescriptionNode.tag = msgTag('MdDescription')  # rename according to message
+            mdibVersionString = str(mdibVersion)
+        else:
+            mdDescriptionNode = etree_.Element(msgTag('MdDescription'))
+            mdibVersionString = None
+        sequenceIdString = mdib.sequenceId
+        if mdibVersionString:
+            getMdDescriptionResponseNode.set('MdibVersion', mdibVersionString)
+        getMdDescriptionResponseNode.set('SequenceId', sequenceIdString)
+
+        getMdDescriptionResponseNode.append(mdDescriptionNode)
+        responseSoapEnvelope.addBodyElement(getMdDescriptionResponseNode)
+        return responseSoapEnvelope
+
     def mk_getmdstate_envelope(self, to, port_type, requested_handles=None):
         """
         :param to: to-field value in address
@@ -72,6 +124,29 @@ class SoapMessageFactory:
         """
         method = 'GetMdState'
         return self._mk_get_method_envelope(to, port_type, method, params=_handles2params(requested_handles))
+
+    @staticmethod
+    def _getActionString(sdc_definitions, methodName):
+        actions_lookup = sdc_definitions.Actions
+        return getattr(actions_lookup, methodName)
+
+    def mk_getmdstate_response_envelope(self, request, mdib, stateContainers):
+        nsmapper = mdib.nsmapper
+        responseSoapEnvelope = soapenvelope.Soap12Envelope(
+            nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
+        replyAddress = request.address.mkReplyAddress(action=self._getActionString(mdib.sdc_definitions, 'GetMdStateResponse'))
+        responseSoapEnvelope.addHeaderObject(replyAddress)
+        getMdStateResponseNode = etree_.Element(msgTag('GetMdStateResponse'), nsmap=nsmap)
+        getMdStateResponseNode.set('MdibVersion', str(mdib.mdibVersion))
+        getMdStateResponseNode.set('SequenceId', mdib.sequenceId)
+
+        mdStateNode = etree_.Element(msgTag('MdState'), attrib=None, nsmap=nsmapper.docNssmap)
+        for stateContainer in stateContainers:
+            mdStateNode.append(stateContainer.mkStateNode(domTag('State')))
+
+        getMdStateResponseNode.append(mdStateNode)
+        responseSoapEnvelope.addBodyElement(getMdStateResponseNode)
+        return responseSoapEnvelope
 
     def mk_getcontainmenttree_envelope(self, to, port_type, requested_handles):
         """

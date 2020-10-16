@@ -10,11 +10,9 @@ class MdibStructureError(Exception):
 
 class MessageReader(object):
     ''' This class does all the conversions from DOM trees (body of SOAP messages) to MDIB objects.'''
-    def __init__(self, mdib):
-        self._mdib = mdib
-        self._logger = mdib.logger
-        self._logPrefix = ''
-
+    def __init__(self, logger, log_prefix = ''):
+        self._logger = logger
+        self._log_prefix = log_prefix
 
     @staticmethod
     def getMdibRootNode(sdc_definitions, xml_text):
@@ -35,8 +33,14 @@ class MessageReader(object):
                 root = getmdibResponseNodes[0]
         return root
 
+    def read_getMdDescription_request(self, request):
+        """
+        :param request: a soap envelope
+        :return : a list of requested Handles
+        """
+        return request.bodyNode.xpath('*/msg:HandleRef/text()', namespaces=namespaces.nsmap)
 
-    def readMdDescription(self, node):
+    def readMdDescription(self, node, mdib):
         '''
         Parses a GetMdDescriptionResponse or the MdDescription part of GetMdibResponse
         :param node: An etree node
@@ -53,20 +57,26 @@ class MessageReader(object):
             p_handle = parentNode.get('Handle')
             for childNode in parentNode:
                 if childNode.get('Handle') is not None:
-                    container = self.mkDescriptorContainerFromNode(childNode, p_handle)
+                    container = self.mkDescriptorContainerFromNode(childNode, p_handle, mdib)
                     descriptions.append(container)
                     addChildren(childNode)
 
         # iterate over tree, collect all handles of vmds, channels and metric descriptors
         allmds = mdDescriptionNode.findall(namespaces.domTag('Mds'))
         for mdsNode in allmds:
-            mds = self.mkDescriptorContainerFromNode(mdsNode, None)
+            mds = self.mkDescriptorContainerFromNode(mdsNode, None, mdib)
             descriptions.append(mds)
             addChildren(mdsNode)
         return descriptions
 
+    def read_getMdState_request(self, request):
+        """
+        :param request: a soap envelope
+        :return : a list of requested Handles
+        """
+        return request.bodyNode.xpath('*/msg:HandleRef/text()', namespaces=namespaces.nsmap)
 
-    def readMdState(self, node, additionalDescriptorContainers=None):
+    def readMdState(self, node, mdib, additionalDescriptorContainers=None):
         '''
         Parses a GetMdStateResponse or the MdState part of GetMdibResponse
         :param node: A node that contains MdState nodes
@@ -80,13 +90,13 @@ class MessageReader(object):
             allstates = mdStateNodes[0].findall(namespaces.domTag('State'))
             for state in allstates:
                 try:
-                    stateContainers.append(self.mkStateContainerFromNode(state, additionalDescriptorContainers=additionalDescriptorContainers))
+                    stateContainers.append(self.mkStateContainerFromNode(state, mdib, additionalDescriptorContainers=additionalDescriptorContainers))
                 except MdibStructureError as ex:
-                    self._logger.error('{}readMdState: cannot create: {}', self._logPrefix, ex)
+                    self._logger.error('{}readMdState: cannot create: {}', self._log_prefix, ex)
         return stateContainers
 
 
-    def readContextState(self, getContextStatesResponseNode):
+    def readContextState(self, getContextStatesResponseNode, mdib):
         ''' Creates Context State Containers from dom tree.
         @param getContextstatesResponseNode: node "getContextStatesResponse" of getContextStates.
         :param additionalDescriptorContainers: a list of descriptor containers that can also be used for state creation
@@ -99,14 +109,14 @@ class MessageReader(object):
             # hard remame to dom:State
             contextStateNode.tag = namespaces.domTag('State')
             try:
-                stateContainer = self.mkStateContainerFromNode(contextStateNode)
+                stateContainer = self.mkStateContainerFromNode(contextStateNode, mdib)
                 states.append(stateContainer)
             except MdibStructureError as ex:
-                self._logger.error('{}readContextState: cannot create: {}', self._logPrefix, ex)
+                self._logger.error('{}readContextState: cannot create: {}', self._log_prefix, ex)
         return states
 
 
-    def mkDescriptorContainerFromNode(self, node, parentHandle):
+    def mkDescriptorContainerFromNode(self, node, parentHandle, mdib):
         '''
 
         :param node: a descriptor node
@@ -118,12 +128,11 @@ class MessageReader(object):
             nodeType = namespaces.txt2QName(nodeType, node.nsmap)
         else:
             nodeType = etree_.QName(node.tag)
-        cls = self._mdib.getDescriptorContainerClass(nodeType)
-        #return self.descr_from_node(cls, self._mdib.nsmapper, node, parentHandle)
-        return cls.fromNode(self._mdib.nsmapper, node, parentHandle)
+        cls = mdib.getDescriptorContainerClass(nodeType)
+        return cls.fromNode(mdib.nsmapper, node, parentHandle)
 
-
-    def mkStateContainerFromNode(self, node, forcedType=None, additionalDescriptorContainers = None):
+    @classmethod
+    def mkStateContainerFromNode(cls, node, mdib, forcedType=None, additionalDescriptorContainers = None):
         '''
         @param node: a etree node
         @param forcedType: if given, the QName that shall be used for class instantiation instead of the data in node
@@ -136,7 +145,7 @@ class MessageReader(object):
                 nodeType = namespaces.txt2QName(nodeType, node.nsmap)
 
         descriptorHandle = node.get('DescriptorHandle')
-        descriptorContainer = self._mdib.descriptions.handle.getOne(descriptorHandle, allowNone=True)
+        descriptorContainer = mdib.descriptions.handle.getOne(descriptorHandle, allowNone=True)
         if descriptorContainer is None:
             if additionalDescriptorContainers is not None:
                 correspondingDescriptors = [ d for d in additionalDescriptorContainers if d.handle == descriptorHandle]
@@ -148,28 +157,37 @@ class MessageReader(object):
                                                                                        descriptorHandle))
             else:
                 descriptorContainer = correspondingDescriptors[0]
-        cls = self._mdib.getStateContainerClass(nodeType)
+        st_cls = mdib.getStateContainerClass(nodeType)
         if node.tag != namespaces.domTag('State'):
             node = copy.copy(node)  # make a copy, do not modify the original report
             node.tag = namespaces.domTag('State')
-        state = cls(self._mdib.nsmapper, descriptorContainer)
-        self.update_state_from_node(state, node)
+        state = st_cls(mdib.nsmapper, descriptorContainer)
+        cls._init_state_from_node(state, node)
+        state.node = node
         return state
 
+    @staticmethod
+    def _init_state_from_node(container, node):
+        ''' update members.
+        '''
+        # update all ContainerProperties
+        for dummy_name, cprop in container._sortedContainerProperties():
+            cprop.updateFromNode(container, node)
 
-    def _mkStateContainersFromReportPart(self, reportPartNode):
+
+    def _mkStateContainersFromReportPart(self, reportPartNode, mdib):
         containers = []
         for childNode in reportPartNode:
             desc_h = childNode.get('DescriptorHandle')
             if desc_h is None:
                 self._logger.error('{}_onEpisodicComponentReport: missing descriptor handle in {}!',
-                                   self._logPrefix, lambda:etree_.tostring(childNode))  #pylint: disable=cell-var-from-loop
+                                   self._log_prefix, lambda:etree_.tostring(childNode))  #pylint: disable=cell-var-from-loop
             else:
-                containers.append(self.mkStateContainerFromNode(childNode))
+                containers.append(self.mkStateContainerFromNode(childNode, mdib))
         return containers
 
 
-    def readWaveformReport(self, reportNode):
+    def readWaveformReport(self, reportNode, mdib):
         '''
         Parses a waveform report
         :param reportNode: A waveform report etree
@@ -179,12 +197,12 @@ class MessageReader(object):
         allSampleArrays = list(reportNode)
         for sampleArray in allSampleArrays:
             if sampleArray.tag.endswith('State'): # ignore everything else, e.g. Extension
-                sc = self.mkStateContainerFromNode(sampleArray, namespaces.domTag('RealTimeSampleArrayMetricState'))
+                sc = self.mkStateContainerFromNode(sampleArray, mdib, namespaces.domTag('RealTimeSampleArrayMetricState'))
                 states.append(sc)
         return states
 
 
-    def readEpisodicMetricReport(self, reportNode):
+    def readEpisodicMetricReport(self, reportNode, mdib):
         '''
         Parses an episodic metric report
         :param reportNode:  An episodic metric report etree
@@ -193,11 +211,11 @@ class MessageReader(object):
         states = []
         reportPartNodes = reportNode.xpath('msg:ReportPart', namespaces=namespaces.nsmap)
         for reportPartNode in reportPartNodes:
-            states.extend(self._mkStateContainersFromReportPart(reportPartNode))
+            states.extend(self._mkStateContainersFromReportPart(reportPartNode, mdib))
         return states
 
 
-    def readEpisodicAlertReport(self, reportNode):
+    def readEpisodicAlertReport(self, reportNode, mdib):
         '''
         Parses an episodic alert report
         :param reportNode:  An episodic alert report etree
@@ -206,12 +224,12 @@ class MessageReader(object):
         states = []
         allAlerts = reportNode.xpath('msg:ReportPart/msg:AlertState', namespaces=namespaces.nsmap)
         for alert in allAlerts:
-            sc = self.mkStateContainerFromNode(alert)
+            sc = self.mkStateContainerFromNode(alert, mdib)
             states.append(sc)
         return states
 
 
-    def readOperationalStateReport(self, reportNode):
+    def readOperationalStateReport(self, reportNode, mdib):
         '''
         Parses an operational state report
         :param reportNode:  An operational state report etree
@@ -220,12 +238,12 @@ class MessageReader(object):
         states = []
         allOperationStateNodes = reportNode.xpath('msg:ReportPart/msg:OperationState', namespaces=namespaces.nsmap)
         for opStateNode in allOperationStateNodes:
-            sc = self.mkStateContainerFromNode(opStateNode)
+            sc = self.mkStateContainerFromNode(opStateNode, mdib)
             states.append(sc)
         return states
 
 
-    def readEpisodicContextReport(self, reportNode):
+    def readEpisodicContextReport(self, reportNode, mdib):
         '''
         Parses an episodic context report
         :param reportNode:  An episodic context report etree
@@ -234,12 +252,12 @@ class MessageReader(object):
         states = []
         reportPartNodes = reportNode.xpath('msg:ReportPart', namespaces=namespaces.nsmap)
         for reportPartNode in reportPartNodes:
-            sc = self._mkStateContainersFromReportPart(reportPartNode)
+            sc = self._mkStateContainersFromReportPart(reportPartNode, mdib)
             states.extend(sc)
         return states
 
 
-    def readEpisodicComponentReport(self, reportNode):
+    def readEpisodicComponentReport(self, reportNode, mdib):
         '''
         Parses an episodic component report
         :param reportNode:  An episodic component report etree
@@ -248,12 +266,12 @@ class MessageReader(object):
         states = []
         componentStateNodes = reportNode.xpath('msg:ReportPart/msg:ComponentState', namespaces=namespaces.nsmap)
         for componentState in componentStateNodes:
-            sc = self.mkStateContainerFromNode(componentState)
+            sc = self.mkStateContainerFromNode(componentState, mdib)
             states.append(sc)
         return states
 
 
-    def readDescriptionModificationReport(self, reportNode):
+    def readDescriptionModificationReport(self, reportNode, mdib):
         '''
         Parses a description modification report
         :param reportNode:  A description modification report etree
@@ -271,49 +289,11 @@ class MessageReader(object):
             modificationType = reportPart.get('ModificationType', 'Upt')  # implied Value is 'Upt'
             descriptorNodes = reportPart.findall(namespaces.msgTag('Descriptor'))
             for descriptorNode in descriptorNodes:
-                dc = self.mkDescriptorContainerFromNode(descriptorNode, parentDescriptor)
+                dc = self.mkDescriptorContainerFromNode(descriptorNode, parentDescriptor, mdib)
                 descriptors[modificationType][0].append(dc)
             stateNodes = reportPart.findall(namespaces.msgTag('State'))
             for stateNode in stateNodes:
-                sc = self.mkStateContainerFromNode(stateNode, additionalDescriptorContainers=descriptors[modificationType][0])
+                sc = self.mkStateContainerFromNode(stateNode, mdib, additionalDescriptorContainers=descriptors[modificationType][0])
                 descriptors[modificationType][1].append(sc)
         return descriptors_list
 
-
-    # @classmethod
-    # def descr_from_node(cls, descr_cls, nsmapper, node, parentHandle):
-    #     descr = descr_cls(nsmapper,
-    #                       handle=None,  # will be determined in constructor from node value
-    #                       parentHandle=parentHandle)
-    #     cls._update_from_node(descr, node)
-    #     return descr
-
-    @classmethod
-    def update_state_from_node(cls, state, node):
-        descriptorHandle = node.get('DescriptorHandle')
-        if state.descriptorHandle is not None and descriptorHandle != state.descriptorHandle:
-            raise RuntimeError(
-                'Update from a node with different descriptor handle is not possible! Have "{}", got "{}"'.format(
-                    state.descriptorHandle, descriptorHandle))
-
-        if state.isMultiState:
-            node_handle = node.get('Handle')
-            if state._handle_is_generated:
-                state.Handle = node_handle
-                state._handle_is_generated = False
-            else:
-                if node_handle != state.Handle:
-                    raise RuntimeError(
-                        'Update from a node with different handle is not possible! Have "{}", got "{}"'.format(
-                            state.Handle, node_handle))
-
-        cls._update_from_node(state, node)
-        state.node = node
-
-    @staticmethod
-    def _update_from_node(container, node):
-        ''' update members.
-        '''
-        # update all ContainerProperties
-        for dummy_name, cprop in container._sortedContainerProperties():
-            cprop.updateFromNode(container, node)

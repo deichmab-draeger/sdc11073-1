@@ -353,12 +353,12 @@ class SetContextStateOperation(OperationDefinition):
                                                        codedValue=codedValue)
 
 
-    def  executeOperation(self, request): #pylint: disable=unused-argument
+    def executeOperation(self, request): #pylint: disable=unused-argument
         super(SetContextStateOperation, self).executeOperation(request)
         # write currentArgument observable
         proposedContextStateNodes = request.bodyNode.xpath('*/msg:ProposedContextState', namespaces=namespaces.nsmap)
-        msg_reader = msgreader.MessageReader(self._mdib)
-        self.currentArgument = [msg_reader.mkStateContainerFromNode(p) for p in proposedContextStateNodes]
+        msg_reader = self._mdib._msg_reader
+        self.currentArgument = [msg_reader.mkStateContainerFromNode(p, self._mdib) for p in proposedContextStateNodes]
 
     @property
     def operationTargetStorage(self):
@@ -422,8 +422,8 @@ class SetAlertStateOperation(OperationDefinition):
         if len(proposedAlertStateNodes) == 0:
             raise ValueError('no ProposedAlertState argument found')
         else:
-            msg_reader = msgreader.MessageReader(self._mdib)
-            self.currentArgument = msg_reader.mkStateContainerFromNode(proposedAlertStateNodes[0])
+            msg_reader = self._mdib._msg_reader
+            self.currentArgument = msg_reader.mkStateContainerFromNode(proposedAlertStateNodes[0], mdib)
 
 
 
@@ -444,8 +444,8 @@ class SetComponentStateOperation(OperationDefinition):
     def executeOperation(self, request):
         super(SetComponentStateOperation, self).executeOperation(request)
         proposedComponentStateNodes = request.bodyNode.xpath('*/msg:ProposedComponentState', namespaces=namespaces.nsmap)
-        msg_reader = msgreader.MessageReader(self._mdib)
-        self.currentArgument = [ msg_reader.mkStateContainerFromNode(p) for p in proposedComponentStateNodes]
+        msg_reader = self._mdib._msg_reader
+        self.currentArgument = [ msg_reader.mkStateContainerFromNode(p, self._mdib) for p in proposedComponentStateNodes]
 
 
 
@@ -466,8 +466,8 @@ class SetMetricStateOperation(OperationDefinition):
     def executeOperation(self, request):
         super(SetMetricStateOperation, self).executeOperation(request)
         proposedMetricStateNodes = request.bodyNode.xpath('*/msg:ProposedMetricState', namespaces=namespaces.nsmap)
-        msg_reader = msgreader.MessageReader(self._mdib)
-        self.currentArgument = [msg_reader.mkStateContainerFromNode(m) for m in proposedMetricStateNodes]
+        msg_reader = self._mdib._msg_reader
+        self.currentArgument = [msg_reader.mkStateContainerFromNode(m, self._mdib) for m in proposedMetricStateNodes]
 
 
 def getOperationClass(qname):

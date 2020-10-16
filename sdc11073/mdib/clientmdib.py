@@ -179,7 +179,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             self.pr = cProfile.Profile()
         
         self._contextMdibVersion = None
-        self._msgReader = msgreader.MessageReader(self)
+        self._msg_reader = sdcClient.msg_reader
         # a buffer for notifications that are received before initial getmdib is done
         self._bufferedNotifications = list()
         self._bufferedNotificationsLock = Lock()
@@ -198,13 +198,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         mdibNode = getService.getMdibNode()
         self.nsmapper.useDocPrefixes(mdibNode.nsmap)
         self._logger.info('creating description containers...')
-        descriptorContainers = self._msgReader.readMdDescription(mdibNode)
+        descriptorContainers = self._msg_reader.readMdDescription(mdibNode, self)
         with self.descriptions._lock: #pylint: disable=protected-access
             self.descriptions.clear()
         self.addDescriptionContainers(descriptorContainers)
         self._logger.info('creating state containers...')
         self.clearStates()
-        stateContainers = self._msgReader.readMdState(mdibNode)
+        stateContainers = self._msg_reader.readMdState(mdibNode, self)
         self.addStateContainers(stateContainers)
 
         mdibVersion = mdibNode.get('MdibVersion')
@@ -265,7 +265,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             contextService = self._sdcClient.client('Context')
             responseNode = contextService.getContextStatesNode()
             self._logger.info('creating context state containers...')
-            contextStateContainers = self._msgReader.readContextState(responseNode)
+            contextStateContainers = self._msg_reader.readContextState(responseNode)
             devices_contextStateHandles = [s.Handle for s in contextStateContainers]
             with self.contextStates._lock:  # pylint: disable=protected-access
                 for obj in self.contextStates.objects:
@@ -283,7 +283,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             self._logger.info('requesting context states...')
             responseNode = contextService.getContextStatesNode(handles)
             self._logger.info('creating context state containers...')
-            contextStateContainers = self._msgReader.readContextState(responseNode)
+            contextStateContainers = self._msg_reader.readContextState(responseNode)
 
             self._contextMdibVersion = int(responseNode.get('MdibVersion', '0'))
             self._logger.debug('_getContextStates: setting _contextMdibVersion to {}', self._contextMdibVersion)
@@ -385,7 +385,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         metricsByHandle = {}
         maxAge = 0
         minAge = 0
-        statecontainers = self._msgReader.readEpisodicMetricReport(reportNode)
+        statecontainers = self._msg_reader.readEpisodicMetricReport(reportNode, self)
         try:
             with self.mdibLock:
                 self.mdibVersion = newMdibVersion
@@ -445,7 +445,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             return
 
         alertByHandle = {}
-        allAlertContainers = self._msgReader.readEpisodicAlertReport(reportNode)
+        allAlertContainers = self._msg_reader.readEpisodicAlertReport(reportNode, self)
         self._logger.debug('_onEpisodicAlertReport: received {} alerts', len(allAlertContainers))
         try:
             with self.mdibLock:
@@ -483,7 +483,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             return
         operationByHandle = {}
         self._logger.info('_onOperationalStateReport: report={}', lambda:etree_.tostring(reportNode))
-        allOperationStateContainers = self._msgReader.readOperationalStateReport(reportNode)
+        allOperationStateContainers = self._msg_reader.readOperationalStateReport(reportNode)
         try:
             with self.mdibLock:
                 self.mdibVersion = newMdibVersion
@@ -538,7 +538,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             return
         waveformByHandle = {}
         waveformAge = {} # collect age of all waveforms in this report, and make one report if age is above warn limit (instead of multiple)
-        allRtSampleArrayContainers = self._msgReader.readWaveformReport(reportNode)
+        allRtSampleArrayContainers = self._msg_reader.readWaveformReport(reportNode, self)
         self._logger.debug('_onWaveformReport: {} waveforms received', len(allRtSampleArrayContainers))
         try:
             with self.mdibLock:
@@ -619,7 +619,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not self._canAcceptMdibVersion('_onEpisodicContextReport', newMdibVersion):
             return
         contextByHandle = {}
-        stateContainers = self._msgReader.readEpisodicContextReport(reportNode)
+        stateContainers = self._msg_reader.readEpisodicContextReport(reportNode, self)
         try:
             with self.mdibLock:
                 self.mdibVersion = newMdibVersion
@@ -660,7 +660,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not self._canAcceptMdibVersion('_onEpisodicComponentReport', newMdibVersion):
             return
         componentByHandle = {}
-        statecontainers = self._msgReader.readEpisodicComponentReport(reportNode)
+        statecontainers = self._msg_reader.readEpisodicComponentReport(reportNode, self)
         try:
             with self.mdibLock:
                 self.mdibVersion = newMdibVersion
@@ -704,7 +704,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         newMdibVersion = int(reportNode.get('MdibVersion', '1'))
         if not self._canAcceptMdibVersion('_onDescriptionModificationReport', newMdibVersion):
             return
-        descriptions_lookup_list = self._msgReader.readDescriptionModificationReport(reportNode)
+        descriptions_lookup_list = self._msg_reader.readDescriptionModificationReport(reportNode, self)
         with self.mdibLock:
             self.mdibVersion = newMdibVersion
             self._updateSequenceId(reportNode)

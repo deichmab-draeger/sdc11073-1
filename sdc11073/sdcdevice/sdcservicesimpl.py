@@ -493,7 +493,8 @@ class GetService(DPWSPortTypeImpl):
 
     def _onGetMdState(self, httpHeader, request):  # pylint:disable=unused-argument
         self._logger.debug('_onGetMdState')
-        requestedHandles = request.bodyNode.xpath('*/msg:HandleRef/text()', namespaces=nsmap)
+#        requestedHandles = request.bodyNode.xpath('*/msg:HandleRef/text()', namespaces=nsmap)
+        requestedHandles = self._sdcDevice.msg_reader.read_getMdState_request(request)
         if len(requestedHandles) > 0:
             self._logger.info('_onGetMdState requested Handles:{}', requestedHandles)
 
@@ -524,46 +525,50 @@ class GetService(DPWSPortTypeImpl):
                 self._logger.info('_onGetMdState requested Handles:{} found {} states', requestedHandles,
                                   len(stateContainers))
 
-            # build response
-            nsmapper = self._mdib.nsmapper
-            responseSoapEnvelope = soapenvelope.Soap12Envelope(
-                nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
-            replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdStateResponse'))
-            responseSoapEnvelope.addHeaderObject(replyAddress)
-            getMdStateResponseNode = etree_.Element(msgTag('GetMdStateResponse'), nsmap=nsmap)
-            getMdStateResponseNode.set('MdibVersion', str(self._mdib.mdibVersion))
-            getMdStateResponseNode.set('SequenceId', self._mdib.sequenceId)
-
-            mdStateNode = etree_.Element(msgTag('MdState'), attrib=None, nsmap=self._mdib.nsmapper.docNssmap)
-            for stateContainer in stateContainers:
-                mdStateNode.append(stateContainer.mkStateNode(domTag('State')))
-
-            getMdStateResponseNode.append(mdStateNode)
-            responseSoapEnvelope.addBodyElement(getMdStateResponseNode)
+            # # build response
+            # nsmapper = self._mdib.nsmapper
+            # responseSoapEnvelope = soapenvelope.Soap12Envelope(
+            #     nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
+            # replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdStateResponse'))
+            # responseSoapEnvelope.addHeaderObject(replyAddress)
+            # getMdStateResponseNode = etree_.Element(msgTag('GetMdStateResponse'), nsmap=nsmap)
+            # getMdStateResponseNode.set('MdibVersion', str(self._mdib.mdibVersion))
+            # getMdStateResponseNode.set('SequenceId', self._mdib.sequenceId)
+            #
+            # mdStateNode = etree_.Element(msgTag('MdState'), attrib=None, nsmap=self._mdib.nsmapper.docNssmap)
+            # for stateContainer in stateContainers:
+            #     mdStateNode.append(stateContainer.mkStateNode(domTag('State')))
+            #
+            # getMdStateResponseNode.append(mdStateNode)
+            # responseSoapEnvelope.addBodyElement(getMdStateResponseNode)
+            responseSoapEnvelope = self._sdcDevice.envelope_creator.mk_getmdstate_response_envelope(request, self._mdib, stateContainers)
         self._logger.debug('_onGetMdState returns {}', lambda: responseSoapEnvelope.as_xml(pretty=False))
         responseSoapEnvelope.validateBody(self._bmmSchema)
         return responseSoapEnvelope
 
     def _onGetMdib(self, httpHeader, request):  # pylint:disable=unused-argument
         self._logger.debug('_onGetMdib')
-        nsmapper = self._mdib.nsmapper
-        responseSoapEnvelope = soapenvelope.Soap12Envelope(
-            nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
-        replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdibResponse'))
-        responseSoapEnvelope.addHeaderObject(replyAddress)
-        if self._sdcDevice.contextstates_in_getmdib:
-            mdibNode = self._mdib.reconstructMdibWithContextStates()
-        else:
-            mdibNode = self._mdib.reconstructMdib()
-        mdibVersionString = mdibNode.get('MdibVersion') # use same version a in mdib node for response
-        sequenceIdString = mdibNode.get('SequenceId')
+        # nsmapper = self._mdib.nsmapper
+        # responseSoapEnvelope = soapenvelope.Soap12Envelope(
+        #     nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
+        # replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdibResponse'))
+        # responseSoapEnvelope.addHeaderObject(replyAddress)
+        # if self._sdcDevice.contextstates_in_getmdib:
+        #     mdibNode = self._mdib.reconstructMdibWithContextStates()
+        # else:
+        #     mdibNode = self._mdib.reconstructMdib()
+        # mdibVersionString = mdibNode.get('MdibVersion') # use same version a in mdib node for response
+        # sequenceIdString = mdibNode.get('SequenceId')
+        #
+        # getMdibResponseNode = etree_.Element(msgTag('GetMdibResponse'), nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+        # if mdibVersionString:
+        #     getMdibResponseNode.set('MdibVersion', mdibVersionString)
+        # getMdibResponseNode.set('SequenceId', sequenceIdString)
+        # getMdibResponseNode.append(mdibNode)
+        # responseSoapEnvelope.addBodyElement(getMdibResponseNode)
+        responseSoapEnvelope = self._sdcDevice.envelope_creator.mk_getmdib_response_envelope(
+            request, self._mdib, self._sdcDevice.contextstates_in_getmdib)
 
-        getMdibResponseNode = etree_.Element(msgTag('GetMdibResponse'), nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
-        if mdibVersionString:
-            getMdibResponseNode.set('MdibVersion', mdibVersionString)
-        getMdibResponseNode.set('SequenceId', sequenceIdString)
-        getMdibResponseNode.append(mdibNode)
-        responseSoapEnvelope.addBodyElement(getMdibResponseNode)
         self._logger.debug('_onGetMdib returns {}', lambda: responseSoapEnvelope.as_xml(pretty=False))
         try:
             responseSoapEnvelope.validateBody(self._bmmSchema)
@@ -584,36 +589,40 @@ class GetService(DPWSPortTypeImpl):
         # => if at least one handle matches any descriptor, the one mds is returned, otherwise empty payload
 
         self._logger.debug('_onGetMdDescription')
-        requestedHandles = request.bodyNode.xpath('*/msg:HandleRef/text()', namespaces=nsmap)
+        #requestedHandles = request.bodyNode.xpath('*/msg:HandleRef/text()', namespaces=nsmap)
+        requestedHandles = self._sdcDevice.msg_reader.read_getMdDescription_request(request)
         if len(requestedHandles) > 0:
             self._logger.info('_onGetMdDescription requested Handles:{}', requestedHandles)
-        includeMds = True if len(requestedHandles) == 0 else False  # if we have handles, we need to check them
-        for h in requestedHandles:
-            if self._sdcDevice.mdib.descriptions.handle.getOne(h, allowNone=True) is not None:
-                includeMds = True
-                break
-        my_namespaces = self._sdcDevice.mdib.nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.MSG, Prefix.PM)
-        responseSoapEnvelope = soapenvelope.Soap12Envelope(my_namespaces)
-        replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdDescriptionResponse'))
-        responseSoapEnvelope.addHeaderObject(replyAddress)
-
-        getMdDescriptionResponseNode = etree_.Element(msgTag('GetMdDescriptionResponse'),
-                                                      nsmap=nsmap)
-
-        if includeMds:
-            mdDescriptionNode, mdibVersion = self._mdib.reconstructMdDescription()
-            mdDescriptionNode.tag = msgTag('MdDescription')  # rename according to message
-            mdibVersionString = str(mdibVersion)
-        else:
-            mdDescriptionNode = etree_.Element(msgTag('MdDescription'))
-            mdibVersionString = None
-        sequenceIdString = self._mdib.sequenceId
-        if mdibVersionString:
-            getMdDescriptionResponseNode.set('MdibVersion', mdibVersionString)
-        getMdDescriptionResponseNode.set('SequenceId', sequenceIdString)
-
-        getMdDescriptionResponseNode.append(mdDescriptionNode)
-        responseSoapEnvelope.addBodyElement(getMdDescriptionResponseNode)
+        # includeMds = True if len(requestedHandles) == 0 else False  # if we have handles, we need to check them
+        # for h in requestedHandles:
+        #     if self._sdcDevice.mdib.descriptions.handle.getOne(h, allowNone=True) is not None:
+        #         includeMds = True
+        #         break
+        # my_namespaces = self._sdcDevice.mdib.nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.MSG, Prefix.PM)
+        # responseSoapEnvelope = soapenvelope.Soap12Envelope(my_namespaces)
+        # replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdDescriptionResponse'))
+        # responseSoapEnvelope.addHeaderObject(replyAddress)
+        #
+        # getMdDescriptionResponseNode = etree_.Element(msgTag('GetMdDescriptionResponse'),
+        #                                               nsmap=nsmap)
+        #
+        # if includeMds:
+        #     mdDescriptionNode, mdibVersion = self._mdib.reconstructMdDescription()
+        #     mdDescriptionNode.tag = msgTag('MdDescription')  # rename according to message
+        #     mdibVersionString = str(mdibVersion)
+        # else:
+        #     mdDescriptionNode = etree_.Element(msgTag('MdDescription'))
+        #     mdibVersionString = None
+        # sequenceIdString = self._mdib.sequenceId
+        # if mdibVersionString:
+        #     getMdDescriptionResponseNode.set('MdibVersion', mdibVersionString)
+        # getMdDescriptionResponseNode.set('SequenceId', sequenceIdString)
+        #
+        # getMdDescriptionResponseNode.append(mdDescriptionNode)
+        # responseSoapEnvelope.addBodyElement(getMdDescriptionResponseNode)
+        responseSoapEnvelope = self._sdcDevice.envelope_creator.mk_getmddescription_response_envelope(
+            request, self._sdcDevice.mdib, requestedHandles
+        )
         self._logger.debug('_onGetMdDescription returns {}', lambda: responseSoapEnvelope.as_xml(pretty=False))
         responseSoapEnvelope.validateBody(self._bmmSchema)
         return responseSoapEnvelope

@@ -23,6 +23,8 @@ from . import httpserver
 from . import intervaltimer
 
 from ..transport.soap import soapenvelope
+from ..transport.soap.msgfactory import SoapMessageFactory
+from ..transport.soap.msgreader import MessageReader
 
 Prefix = namespaces.Prefix_Namespace
 
@@ -87,8 +89,14 @@ class SdcHandler_Base(object):
         self._setupLogging(logLevel)
         self._logger = loghelper.getLoggerAdapter('sdc.device', log_prefix)
 
+
         self.chunked_messages = chunked_messages
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
+
+        self.envelope_creator = SoapMessageFactory(sdc_definitions=deviceMdibContainer.sdc_definitions,
+                                                   logger=self._logger)
+        self.msg_reader = MessageReader(self._logger)
+
         # hostDispatcher provides data of the sdc device itself
         self._hostDispatcher = self._mkHostDispatcher()
 

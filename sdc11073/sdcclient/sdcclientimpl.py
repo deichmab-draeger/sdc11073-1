@@ -28,6 +28,7 @@ from ..definitions_sdc import SDC_v1_Definitions
 from ..transport.soap import soapenvelope
 from ..transport.soap import soapclient
 from ..transport.soap.msgfactory import SoapMessageFactory
+from ..transport.soap import msgreader
 
 def _mkSoapClient(scheme, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
                   requestEncodings=None, chunked_requests=False):
@@ -246,6 +247,7 @@ class SdcClient(object):
 
         self._envelope_creator = SoapMessageFactory(self.sdc_definitions, self._logger)
 
+        self.msg_reader = msgreader.MessageReader(self._logger, 'msg_reader')
 
 
     def _register_mdib(self, mdib):
