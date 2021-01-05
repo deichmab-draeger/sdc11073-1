@@ -120,7 +120,7 @@ class ClientRtBuffer(object):
                             annot = annotations[aIndex] # index is zero-based
                             appliedAnnotations.append(annot)
                 t = observationTime + i * self.sample_period
-                rtSampleContainers.append(mdibbase.RtSampleContainer(sample, t, metricValue.Validity, appliedAnnotations))
+                rtSampleContainers.append(mdibbase.RtSampleContainer(sample, t, metricValue.MetricQuality.Validity, appliedAnnotations))
         return rtSampleContainers
 
     def addRtSampleContainers(self, sc):

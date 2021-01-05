@@ -2,12 +2,12 @@ from concurrent import futures
 import logging
 import grpc
 
-from sdc import sdc_services_pb2_grpc
-from sdc.biceps.setvalueresponse_pb2 import SetValueResponseMsg
-from sdc.biceps.abstractsetresponse_pb2 import AbstractSetResponseMsg
-from sdc.biceps.invocationinfo_pb2 import InvocationInfoMsg
-from sdc.biceps.invocationstate_pb2 import InvocationStateMsg
-from sdc.sdc_messages_pb2 import SetValueResponse
+from org.somda.sdc.proto.model import sdc_services_pb2_grpc
+from org.somda.sdc.proto.model.biceps.setvalueresponse_pb2 import SetValueResponseMsg
+from org.somda.sdc.proto.model.biceps.abstractsetresponse_pb2 import AbstractSetResponseMsg
+from org.somda.sdc.proto.model.biceps.invocationinfo_pb2 import InvocationInfoMsg
+from org.somda.sdc.proto.model.biceps.invocationstate_pb2 import InvocationStateMsg
+from org.somda.sdc.proto.model.sdc_messages_pb2 import SetValueResponse
 
 
 class SetService(sdc_services_pb2_grpc.SetServiceServicer):

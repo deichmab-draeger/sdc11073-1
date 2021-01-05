@@ -7,7 +7,7 @@ from sdc11073.transport.protobuf.provider.provider import SdcDevice
 from sdc11073.mdib.devicemdib import DeviceMdibContainer
 from sdc11073.transport.soap.soapenvelope import DPWSThisModel, DPWSThisDevice
 from sdc11073 import namespaces, pmtypes
-
+from org.somda.sdc.proto.model import sdc_messages_pb2
 
 class SomeDevice(SdcDevice):
     """A device used for unit tests
@@ -29,10 +29,10 @@ class SomeDevice(SdcDevice):
         deviceMdibContainer = DeviceMdibContainer.fromString(mdib_xml_string, log_prefix=log_prefix)
         # set Metadata
         mdsDescriptor = deviceMdibContainer.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
-        mdsDescriptor.Manufacturer.append(pmtypes.LocalizedText(u'Dräger'))
-        mdsDescriptor.ModelName.append(pmtypes.LocalizedText(model.modelName[None]))
-        mdsDescriptor.SerialNumber.append(pmtypes.ElementWithTextOnly('ABCD-1234'))
-        mdsDescriptor.ModelNumber = '0.99'
+        mdsDescriptor.MetaData.Manufacturer = [pmtypes.LocalizedText(u'Dräger')]
+        mdsDescriptor.MetaData.ModelName = [pmtypes.LocalizedText(model.modelName[None])]
+        mdsDescriptor.MetaData.SerialNumber = ['ABCD-1234']
+        mdsDescriptor.MetaData.ModelNumber = '0.99'
         # mdsDescriptor.updateNode()
         super(SomeDevice, self).__init__(wsdiscovery, my_uuid, model, device, deviceMdibContainer, validate,
                                          # registerDefaultOperations=True,
@@ -71,5 +71,5 @@ class Test_Client_SomeDevice_GRPC(unittest.TestCase):
     def test_BasicConnect(self):
         cl_getService = self.sdc_client.client('Get')
         response = cl_getService.GetMdib()
-        self.assertEqual(response.tag, str(namespaces.msgTag('GetMdibResponse')))
+        self.assertIsInstance(response, sdc_messages_pb2.GetMdibResponse)
 

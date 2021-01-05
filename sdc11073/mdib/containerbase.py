@@ -1,5 +1,6 @@
 import copy
 import inspect
+from math import isclose
 from lxml import etree as etree_
 from .. import observableproperties as properties
 from ..namespaces import QN_TYPE
@@ -14,7 +15,7 @@ class ContainerBase(object):
     # rule is : elements are sorted from this root class to derived class. Last derived class comes last.
     # Initialization is from left to right
     # This is according to the inheritance in BICEPS xml schema
-    _props = tuple()  # empty tuple, this base class has no properties
+    #_props = tuple()  # empty tuple, this base class has no properties
 
     # def __init__(self, nsmapper, node=None):
     #     self.nsmapper = nsmapper
@@ -112,7 +113,7 @@ class ContainerBase(object):
                 #                if not myvalue == othervalue: # use ==, because only __eq__ is implemented
                 if myvalue != othervalue:
                     ret.append('{}={}, other={}'.format(name, myvalue, othervalue))
-        return ret
+        return None if len(ret) == 0 else ret
 
     def __repr__(self):
         return '{} type={}'.format(self.__class__.__name__, self.NODETYPE.localname)

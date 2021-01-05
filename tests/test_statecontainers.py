@@ -536,23 +536,23 @@ class TestStateContainers(unittest.TestCase):
     def test_LocationContextStateContainer(self):
         def verifyEqual(origin, copied):
             self.assertEqual(copied.Handle, origin.Handle)
-            self.assertEqual(copied.PoC, origin.PoC)
-            self.assertEqual(copied.Room, origin.Room)
-            self.assertEqual(copied.Bed, origin.Bed)
-            self.assertEqual(copied.Facility, origin.Facility)
-            self.assertEqual(copied.Building, origin.Building)
-            self.assertEqual(copied.Floor, origin.Floor)
+            self.assertEqual(copied.LocationDetail.PoC, origin.LocationDetail.PoC)
+            self.assertEqual(copied.LocationDetail.Room, origin.LocationDetail.Room)
+            self.assertEqual(copied.LocationDetail.Bed, origin.LocationDetail.Bed)
+            self.assertEqual(copied.LocationDetail.Facility, origin.LocationDetail.Facility)
+            self.assertEqual(copied.LocationDetail.Building, origin.LocationDetail.Building)
+            self.assertEqual(copied.LocationDetail.Floor, origin.LocationDetail.Floor)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
             
         sc = statecontainers.LocationContextStateContainer(nsmapper=self.nsmapper, 
                                                            descriptorContainer=self.dc)
         
-        self.assertEqual(sc.PoC, None)
-        self.assertEqual(sc.Room, None)
-        self.assertEqual(sc.Bed, None)
-        self.assertEqual(sc.Facility, None)
-        self.assertEqual(sc.Building, None)
-        self.assertEqual(sc.Floor, None)
+        self.assertEqual(sc.LocationDetail.PoC, None)
+        self.assertEqual(sc.LocationDetail.Room, None)
+        self.assertEqual(sc.LocationDetail.Bed, None)
+        self.assertEqual(sc.LocationDetail.Facility, None)
+        self.assertEqual(sc.LocationDetail.Building, None)
+        self.assertEqual(sc.LocationDetail.Floor, None)
 
         #test creation from empty node
         node = sc.mkStateNode(_my_tag)
@@ -564,23 +564,23 @@ class TestStateContainers(unittest.TestCase):
         verifyEqual(sc, sc2)
         
         sc.Handle = 'xyz'
-        sc.PoC = 'a'
-        sc.Room = 'b'
-        sc.Bed = 'c'
-        sc.Facility = 'd'
-        sc.Building = 'e'
-        sc.Floor = 'f'
+        sc.LocationDetail.PoC = 'a'
+        sc.LocationDetail.Room = 'b'
+        sc.LocationDetail.Bed = 'c'
+        sc.LocationDetail.Facility = 'd'
+        sc.LocationDetail.Building = 'e'
+        sc.LocationDetail.Floor = 'f'
         
         sc2 = statecontainers.LocationContextStateContainer(nsmapper=self.nsmapper,
                                                                      descriptorContainer=self.dc)
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
-        sc.PoC = 'aa'
-        sc.Room = 'bb'
-        sc.Bed = 'cc'
-        sc.Facility = 'dd'
-        sc.Building = 'ee'
-        sc.Floor = 'ff'
+        sc.LocationDetail.PoC = 'aa'
+        sc.LocationDetail.Room = 'bb'
+        sc.LocationDetail.Bed = 'cc'
+        sc.LocationDetail.Facility = 'dd'
+        sc.LocationDetail.Building = 'ee'
+        sc.LocationDetail.Floor = 'ff'
         
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
@@ -593,12 +593,12 @@ class TestStateContainers(unittest.TestCase):
                                                                            sdc_location=loc,
                                                                            bicepsSchema=bicepsSchema)
         self.assertEqual(sc.Handle, 'abc')
-        self.assertEqual(sc.PoC, 'b')
-        self.assertEqual(sc.Room, 'f')
-        self.assertEqual(sc.Bed, 'c')
-        self.assertEqual(sc.Facility, 'a')
-        self.assertEqual(sc.Building, 'd')
-        self.assertEqual(sc.Floor, 'e')
+        self.assertEqual(sc.LocationDetail.PoC, 'b')
+        self.assertEqual(sc.LocationDetail.Room, 'f')
+        self.assertEqual(sc.LocationDetail.Bed, 'c')
+        self.assertEqual(sc.LocationDetail.Facility, 'a')
+        self.assertEqual(sc.LocationDetail.Building, 'd')
+        self.assertEqual(sc.LocationDetail.Floor, 'e')
 
         sc2 = statecontainers.LocationContextStateContainer(nsmapper=self.nsmapper,
                                                             descriptorContainer=self.dc)
@@ -617,13 +617,13 @@ class TestStateContainers(unittest.TestCase):
     def test_PatientContextStateContainer(self):
         def verifyEqual(origin, copied):
             self.assertEqual(copied.Handle, origin.Handle)
-            self.assertEqual(copied.Givenname, origin.Givenname)
-            self.assertEqual(copied.Middlename, origin.Middlename)
-            self.assertEqual(copied.Familyname, origin.Familyname)
-            self.assertEqual(copied.DateOfBirth, origin.DateOfBirth)
-            self.assertEqual(copied.Height, origin.Height)
-            self.assertEqual(copied.Weight, origin.Weight)
-            self.assertEqual(copied.Race, origin.Race)
+            self.assertEqual(copied.CoreData.Givenname, origin.CoreData.Givenname)
+            self.assertEqual(copied.CoreData.Middlename, origin.CoreData.Middlename)
+            self.assertEqual(copied.CoreData.Familyname, origin.CoreData.Familyname)
+            self.assertEqual(copied.CoreData.DateOfBirth, origin.CoreData.DateOfBirth)
+            self.assertEqual(copied.CoreData.Height, origin.CoreData.Height)
+            self.assertEqual(copied.CoreData.Weight, origin.CoreData.Weight)
+            self.assertEqual(copied.CoreData.Race, origin.CoreData.Race)
             self.assertEqual(copied.Identification, origin.Identification)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
         
@@ -635,16 +635,15 @@ class TestStateContainers(unittest.TestCase):
         sc.Identification.append(pmtypes.InstanceIdentifier('def', pmtypes.CodedValue('456'), [pmtypes.LocalizedText('John'),
                                                                                                pmtypes.LocalizedText('Jim'),
                                                                                                pmtypes.LocalizedText('Jane')]))
-        sc.Givenname = 'Karl'
-        sc.Middlename = 'M.'
-        sc.Familyname = 'Klammer'
-        sc.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
-        sc.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
-        sc.Race = pmtypes.CodedValue('123', 'def')
+        sc.CoreData.Givenname = 'Karl'
+        sc.CoreData.Middlename = 'M.'
+        sc.CoreData.Familyname = 'Klammer'
+        sc.CoreData.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
+        sc.CoreData.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
+        sc.CoreData.Race = pmtypes.CodedValue('123', 'def')
 
-        sc.DateOfBirth = datetime.date(2001, 3, 12)
-        print (sc.DateOfBirth)
-        
+        sc.CoreData.DateOfBirth = datetime.date(2001, 3, 12)
+
         node = sc.mkStateNode(_my_tag)
         print (etree_.tostring(node, pretty_print=True).decode('utf-8'))
         sc2 = statecontainers.PatientContextStateContainer(nsmapper=self.nsmapper, 
@@ -652,11 +651,11 @@ class TestStateContainers(unittest.TestCase):
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
 
-        sc.Middlename = 'K.'
-        sc.DateOfBirth = datetime.datetime(2001, 3, 12, 14, 30, 1)
+        sc.CoreData.Middlename = 'K.'
+        sc.CoreData.DateOfBirth = datetime.datetime(2001, 3, 12, 14, 30, 1)
         sc.incrementState()
-        sc.Height._value =42
-        sc.Weight._value =420
+        sc.CoreData.Height._value =42
+        sc.CoreData.Weight._value =420
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
 
@@ -664,28 +663,27 @@ class TestStateContainers(unittest.TestCase):
     def test_PatientContextStateContainer_final(self):
         def verifyEqual(origin, copied):
             self.assertEqual(copied.Handle, origin.Handle)
-            self.assertEqual(copied.Givenname, origin.Givenname)
-            self.assertEqual(copied.Middlename, origin.Middlename)
-            self.assertEqual(copied.Familyname, origin.Familyname)
-            self.assertEqual(copied.DateOfBirth, origin.DateOfBirth)
-            self.assertEqual(copied.Height, origin.Height)
-            self.assertEqual(copied.Weight, origin.Weight)
-            self.assertEqual(copied.Race, origin.Race)
+            self.assertEqual(copied.CoreData.Givenname, origin.CoreData.Givenname)
+            self.assertEqual(copied.CoreData.Middlename, origin.CoreData.Middlename)
+            self.assertEqual(copied.CoreData.Familyname, origin.CoreData.Familyname)
+            self.assertEqual(copied.CoreData.DateOfBirth, origin.CoreData.DateOfBirth)
+            self.assertEqual(copied.CoreData.Height, origin.CoreData.Height)
+            self.assertEqual(copied.CoreData.Weight, origin.CoreData.Weight)
+            self.assertEqual(copied.CoreData.Race, origin.CoreData.Race)
             self.assertEqual(copied.Identification, origin.Identification)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
         
         sc = statecontainers.PatientContextStateContainer(nsmapper=self.nsmapper,
                                                                         descriptorContainer=self.dc,)
 
-        sc.Givenname = 'Karl'
-        sc.Middlename = 'M.'
-        sc.Familyname = 'Klammer'
-        sc.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
-        sc.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
-        sc.Race = pmtypes.CodedValue('123', 'def')
+        sc.CoreData.Givenname = 'Karl'
+        sc.CoreData.Middlename = 'M.'
+        sc.CoreData.Familyname = 'Klammer'
+        sc.CoreData.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
+        sc.CoreData.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
+        sc.CoreData.Race = pmtypes.CodedValue('123', 'def')
 
-        sc.DateOfBirth = datetime.date(2001, 3, 12)
-        print (sc.DateOfBirth)
+        sc.CoreData.DateOfBirth = datetime.date(2001, 3, 12)
 
         sc.Identification.append(pmtypes.InstanceIdentifier('abc', pmtypes.CodedValue('123'), [pmtypes.LocalizedText('Peter', 'en'),
                                                                                                pmtypes.LocalizedText('Paul'),
@@ -701,11 +699,11 @@ class TestStateContainers(unittest.TestCase):
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
 
-        sc.Middlename = 'K.'
-        sc.DateOfBirth = datetime.datetime(2001, 3, 12, 14, 30, 1)
+        sc.CoreData.Middlename = 'K.'
+        sc.CoreData.DateOfBirth = datetime.datetime(2001, 3, 12, 14, 30, 1)
         sc.incrementState()
-        sc.Height._value = 42
-        sc.Weight._value = 420
+        sc.CoreData.Height._value = 42
+        sc.CoreData.Weight._value = 420
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
 

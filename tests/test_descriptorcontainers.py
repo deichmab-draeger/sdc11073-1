@@ -145,14 +145,14 @@ class TestDescriptorContainers(unittest.TestCase):
         self._cmp_AlertConditionDescriptorContainer(dc, dc2)
 
         # set values, test updateFromNode
-        dc.Source = [pmtypes.ElementWithTextOnly('A'),pmtypes.ElementWithTextOnly('B')]
+        dc.Source = ['A','B']
         dc.Cause = [pmtypes.CauseInfo(remedyInfo=pmtypes.RemedyInfo([pmtypes.LocalizedText('abc'), pmtypes.LocalizedText('def')]),
                                       descriptions=[pmtypes.LocalizedText('descr1'), pmtypes.LocalizedText('descr2')]),
                     pmtypes.CauseInfo(remedyInfo=pmtypes.RemedyInfo([pmtypes.LocalizedText('123'), pmtypes.LocalizedText('456')]),
                                       descriptions=[pmtypes.LocalizedText('descr1'), pmtypes.LocalizedText('descr2')])
                     ]
-        dc.Kind = 'cont'
-        dc.Priority = 'High'
+        dc.Kind = pmtypes.AlertConditionKind.TECHNICAL
+        dc.Priority = pmtypes.AlertConditionPriority.HIGH
         node = dc.mkNode(test_tag)
         #dc2.updateDescrFromNode(node)
         dc2.update_from_other_container(dc)
@@ -200,7 +200,7 @@ class TestDescriptorContainers(unittest.TestCase):
 
     def test_ActivateOperationDescriptorContainer(self):
         def _cmp_ActivateOperationDescriptorContainer(_dc, _dc2):
-            self.assertEqual(_dc.diff(_dc2), [])
+            self.assertIsNone(_dc.diff(_dc2))
             self.assertEqual(_dc.Argument, _dc2.Argument)
 #            self.assertEqual(_dc.ActivationDuration, _dc2.ActivationDuration)
             self.assertEqual(_dc.Retriggerable, _dc2.Retriggerable)
@@ -213,10 +213,10 @@ class TestDescriptorContainers(unittest.TestCase):
         node = dc.mkNode(test_tag)
         dc2 = descriptorcontainers.ActivateOperationDescriptorContainer.fromNode(nsmapper=self.nsmapper,
                                                                                  node=node,
-                                                                                 parentHandle='467')
+                                                                                 parentHandle='456')
         _cmp_ActivateOperationDescriptorContainer(dc, dc2)
 
-        dc.Argument = [pmtypes.Argument(argName=pmtypes.CodedValue('abc', 'def'), arg=namespaces.domTag('blubb'))]
+        dc.Argument = [pmtypes.ActivateOperationDescriptorArgument(argName=pmtypes.CodedValue('abc', 'def'), arg=namespaces.domTag('blubb'))]
         # node = dc.mkNode(test_tag)
         # dc2.updateDescrFromNode(node)
         dc2.update_from_other_container(dc)

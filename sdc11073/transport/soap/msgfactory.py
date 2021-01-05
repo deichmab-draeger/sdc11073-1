@@ -288,9 +288,10 @@ class SoapMessageFactory:
             arg_val.text = value
         # TODO: add argument_node to soap envelope somehow
         # look for safety context in mdib
-        sih = self._mk_optional_safetyheader(body_node, operation_handle)
-        if sih is not None:
-            sih = [sih]
+        #sih = self._mk_optional_safetyheader(body_node, operation_handle)
+        #if sih is not None:
+        #    sih = [sih]
+        sih = None
         tmp = etree_.tostring(body_node)
         soap_envelope = self._mk_soapenvelope(to, port_type, 'Activate', tmp, additional_headers=sih)
         return soap_envelope
@@ -434,13 +435,13 @@ class SoapMessageFactory:
         else:
             my_ns = Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG)
 
-        sih = self._mk_optional_safetyheader(body_node, operation_handle)  # a header or None
+        #sih = self._mk_optional_safetyheader(body_node, operation_handle)  # a header or None
 
         soap_envelope = soapenvelope.Soap12Envelope(my_ns)
         action_string = self.get_action_string(port_type, method_name)
         soap_envelope.setAddress(soapenvelope.WsAddress(action=action_string, to=to))
-        if sih is not None:
-            soap_envelope.addHeaderObject(sih)
+#        if sih is not None:
+#            soap_envelope.addHeaderObject(sih)
 
         soap_envelope.addBodyElement(body_node)
 #         soap_envelope.validateBody(self._bmmSchema)

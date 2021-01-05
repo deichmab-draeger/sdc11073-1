@@ -1,4 +1,4 @@
-from sdc import sdc_services_pb2_grpc, sdc_messages_pb2
+from org.somda.sdc.proto.model import sdc_services_pb2_grpc, sdc_messages_pb2
 
 class GetService_Wrapper(sdc_services_pb2_grpc.GetServiceStub):
     def __init__(self, channel):

@@ -95,7 +95,7 @@ class ProviderRole(object):
                                operationDescriptorContainer.coding,
                                currentArgumentHandler,
                                currentRequestHandler)
-        op.safetyReq = operationDescriptorContainer.SafetyReq
+#        op.safetyReq = operationDescriptorContainer.SafetyReq
         return op
 
     def _mkOperation(self, cls, handle, operationTargetHandle, codedValue, currentArgumentHandler=None, currentRequestHandler=None):

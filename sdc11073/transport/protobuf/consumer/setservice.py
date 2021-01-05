@@ -1,5 +1,5 @@
-from sdc import sdc_services_pb2_grpc, sdc_messages_pb2
-from sdc.biceps import setvalue_pb2, abstractset_pb2
+from org.somda.sdc.proto.model import sdc_services_pb2_grpc, sdc_messages_pb2
+from org.somda.sdc.proto.model.biceps import setvalue_pb2, abstractset_pb2
 
 class SetService_Wrapper(sdc_services_pb2_grpc.SetServiceStub):
     def __init__(self, channel):

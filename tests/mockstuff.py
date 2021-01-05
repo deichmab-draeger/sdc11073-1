@@ -105,10 +105,10 @@ class SomeDevice(SdcDevice):
         deviceMdibContainer = DeviceMdibContainer.fromString(mdib_xml_string, log_prefix=log_prefix)
         # set Metadata
         mdsDescriptor = deviceMdibContainer.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
-        mdsDescriptor.Manufacturer.append(pmtypes.LocalizedText(u'Dräger'))
-        mdsDescriptor.ModelName.append(pmtypes.LocalizedText(model.modelName[None]))
-        mdsDescriptor.SerialNumber.append(pmtypes.ElementWithTextOnly('ABCD-1234'))
-        mdsDescriptor.ModelNumber = '0.99'
+        mdsDescriptor.MetaData.Manufacturer.append(pmtypes.LocalizedText(u'Dräger'))
+        mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(model.modelName[None]))
+        mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
+        mdsDescriptor.MetaData.ModelNumber = '0.99'
         # mdsDescriptor.updateNode()
         super(SomeDevice, self).__init__(wsdiscovery, my_uuid, model, device, deviceMdibContainer, validate,
                                          # registerDefaultOperations=True,

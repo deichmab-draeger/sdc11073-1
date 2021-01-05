@@ -1,9 +1,8 @@
 import logging
 
 import grpc
-
-from sdc import sdc_services_pb2, sdc_services_pb2_grpc, sdc_messages_pb2
-from sdc.biceps import setvalue_pb2, abstractset_pb2
+from org.somda.sdc.proto.model import sdc_services_pb2, sdc_services_pb2_grpc, sdc_messages_pb2
+from org.somda.sdc.proto.model.biceps import setvalue_pb2, abstractset_pb2
 from .getservice import GetService_Wrapper
 from .setservice import SetService_Wrapper
 

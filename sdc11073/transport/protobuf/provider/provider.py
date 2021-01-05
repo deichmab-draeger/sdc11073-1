@@ -3,7 +3,7 @@ import logging
 import threading
 import time
 import grpc
-from sdc import sdc_services_pb2_grpc
+from org.somda.sdc.proto.model import sdc_services_pb2_grpc
 from .getservice import GetService
 from .setservice import SetService
 from ....sdcdevice import intervaltimer
@@ -27,6 +27,8 @@ class SdcDevice(object):
         self._server_thread = None
         self._rtSampleSendThread = None
         self.collectRtSamplesPeriod = 0.1  # in seconds
+        self.get_service = GetService(self._mdib)
+        self.set_service = SetService(self._mdib)
 
     def startAll(self, startRealtimeSampleLoop=True, shared_http_server=None):
         # if self.product_roles is not None:
@@ -49,8 +51,8 @@ class SdcDevice(object):
 
     def _serve(self):
         self._server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        sdc_services_pb2_grpc.add_GetServiceServicer_to_server(GetService(self._mdib), self._server)
-        sdc_services_pb2_grpc.add_SetServiceServicer_to_server(SetService(self._mdib), self._server)
+        sdc_services_pb2_grpc.add_GetServiceServicer_to_server(self.get_service, self._server)
+        sdc_services_pb2_grpc.add_SetServiceServicer_to_server(self.set_service, self._server)
         self._server.add_insecure_port('[::]:50051')
         self._server.start()
         print('server started')
