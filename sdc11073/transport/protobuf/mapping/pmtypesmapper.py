@@ -13,7 +13,7 @@ from sdc11073.pmtypes import ReferenceRange, RelatedMeasurement, ClinicalInfo, I
 from sdc11073.pmtypes import OrderDetail, PerformedOrderDetail, WorkflowDetail, AbstractMetricDescriptorRelation, T_Udi
 from sdc11073.pmtypes import RequestedOrderDetail, MetaData, OperationGroup
 from sdc11073.dataconverters import DecimalConverter
-from sdc11073.mdib.containerproperties import DecimalAttributeProperty, TimestampAttributeProperty
+from sdc11073.mdib.containerproperties import DecimalAttributeProperty, TimestampAttributeProperty, CurrentTimestampAttributeProperty
 from sdc11073.mdib.containerproperties import IntegerAttributeProperty, DurationAttributeProperty, EnumAttributeProperty
 from sdc11073.mdib.containerproperties import NodeAttributeProperty, NodeAttributeListProperty, SubElementListProperty
 from sdc11073.mdib.containerproperties import HandleRefListAttributeProperty,  OperationRefListAttributeProperty, AlertConditionRefListAttributeProperty
@@ -55,7 +55,7 @@ from org.somda.sdc.proto.model.biceps.scostate_pb2 import ScoStateMsg
 from google.protobuf.wrappers_pb2 import StringValue
 from google.protobuf.duration_pb2 import Duration
 from decimal import Decimal
-
+from .mapping_common import name_to_p, attr_name_to_p, p_name_from_pm_name
 _logger = logging.getLogger('pysdc.grpc.pmtypes_mapper')
 
 #  str <->StringValue
@@ -158,7 +158,7 @@ def annotation_from_p(p: AbstractMetricValueMsg.AnnotationMsg) -> Annotation:
 
 # [InstanceIdentifier, OperatingJurisdiction] <-> InstanceIdentifierOneOfMsg
 def instance_identifier_to_oneof_p(inst:[InstanceIdentifier, OperatingJurisdiction],
-                                   p:InstanceIdentifierOneOfMsg)->InstanceIdentifierMsg:
+                                   p:InstanceIdentifierOneOfMsg) -> InstanceIdentifierMsg:
     if p is None:
         p = InstanceIdentifierOneOfMsg()
     if isinstance(inst, OperatingJurisdiction):
@@ -333,21 +333,6 @@ _from_special_funcs = {InstanceIdentifierOneOfMsg: instance_identifier_from_oneo
                        }
 
 
-def _name_to_p(prefix, name):
-    if name.endswith('Container'):
-        name = name[:-9]
-    if name.startswith('_'):
-        name = name[1:]
-    tmp = []
-    tmp.extend(prefix)
-    tmp.append(name[0])
-    for c in name[1:]:
-        if c.isupper() and tmp[-1].islower():
-            tmp.append('_')
-        tmp.append(c)
-    return ''.join(tmp).lower()
-
-
 def generic_to_p(pm_src, p, indent='', to_special_funcs=None):
     if p is None:
         # is there a special handler for whole class?
@@ -379,7 +364,7 @@ def generic_to_p(pm_src, p, indent='', to_special_funcs=None):
             p_current_entry_point = p
         else:
             # find parent class members entry point
-            p_name = _name_to_p('', tmp_cls.__name__)
+            p_name = name_to_p(tmp_cls.__name__)
             p_current_entry_point = getattr(p_current_entry_point, p_name)
         # iterate over all properties
         for name in names:
@@ -401,8 +386,10 @@ def generic_to_p(pm_src, p, indent='', to_special_funcs=None):
             elif name == 'ext_Extension':
                 p_name = 'element1'
             else:
-                prefix = 'a_' if isinstance(cp_type, (NodeAttributeProperty, NodeAttributeListProperty)) else ''
-                p_name = _name_to_p(prefix, name)
+                if isinstance(cp_type, (NodeAttributeProperty, NodeAttributeListProperty)):
+                    p_name = attr_name_to_p(name)
+                else:
+                    p_name = name_to_p(name)
             # convert
             p_dest = getattr(p_current_entry_point, p_name)
             special_handler_dest = _to_special_funcs.get(p_dest.__class__)
@@ -419,7 +406,7 @@ def generic_to_p(pm_src, p, indent='', to_special_funcs=None):
                 # type conversion if needed
                 if isinstance(cp_type, DecimalAttributeProperty):
                     value = DecimalConverter.toXML(value)
-                elif isinstance(cp_type, TimestampAttributeProperty):
+                elif isinstance(cp_type, (TimestampAttributeProperty, CurrentTimestampAttributeProperty)):
                     value = int(value) # float is not supported
                 if cp_type.isOptional:
                     p_dest.value = value
@@ -503,7 +490,7 @@ def generic_from_p(p, pm_dest=None, indent=''):
             p_current_entry_point = p
         else:
             # find parent class members entry point
-            p_name = _name_to_p('', tmp_cls.__name__)
+            p_name = name_to_p(tmp_cls.__name__)
             p_current_entry_point = getattr(p_current_entry_point, p_name)
         # special handler for whole dest class?
         special_handler = _from_special_funcs.get(tmp_cls)
@@ -517,14 +504,8 @@ def generic_from_p(p, pm_dest=None, indent=''):
         for name in names:
             print(f'{indent}handling {tmp_cls.__name__}.{name}')
             dest_type = getattr(pm_dest.__class__, name)
-            # determine member name in p:
-            if name == 'text' and isinstance(p, LocalizedTextMsg):
-                p_name = 'string'
-            elif name == 'ext_Extension':
-                p_name = 'element1'
-            else:
-                prefix = 'a_' if isinstance(dest_type, (NodeAttributeProperty, NodeAttributeListProperty)) else ''
-                p_name = _name_to_p(prefix, name)
+            # # determine member name in p:
+            p_name = p_name_from_pm_name(p, pm_dest.__class__, name)
             p_src = getattr(p_current_entry_point, p_name)
 
             # special handler for property?

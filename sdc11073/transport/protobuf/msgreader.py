@@ -3,13 +3,15 @@ from sdc11073 import namespaces
 from sdc11073 import pmtypes
 from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
 from .mapping import descriptorsmapper as dm
+from .mapping import statesmapper as sm
+from .mapping import pmtypesmapper as pm
 
 class MdibStructureError(Exception):
     pass
 
 
 class MessageReader(object):
-    ''' This class does all the conversions from DOM trees (body of SOAP messages) to MDIB objects.'''
+    ''' This class does all the conversions from protobuf messages to MDIB objects.'''
     def __init__(self, logger, log_prefix = ''):
         self._logger = logger
         self._log_prefix = log_prefix
@@ -41,10 +43,9 @@ class MessageReader(object):
                 ret.append(alert_condition)
         return ret
 
-    def readMdDescription(self, msg, mdib) -> List[AbstractDescriptorContainer]:
+    def readMdDescription(self, p_md_description_msg, mdib) -> List[AbstractDescriptorContainer]:
         ret = []
-        root = msg.payload.mdib.md_description
-        for p_mds in root.mds:
+        for p_mds in p_md_description_msg.mds:
             parent_handle = None
             mds = dm.generic_descriptor_from_p(p_mds, parent_handle, mdib.nsmapper)
             ret.append(mds)
@@ -83,6 +84,18 @@ class MessageReader(object):
             ret.extend(self._read_abstract_complex_device_component_descriptor_children(p_mds, mdib))
         return ret
 
-    def readMdState(self, msg, mdib):
-        pass
+    def readMdState(self, p_md_state, mdib):
+        ret = []
+        for p_abstract_state in p_md_state.state:
+            p_state = sm.find_abstract_state_one_of(p_abstract_state)
+            descr = None
+            descr_handle = sm.p_get_value(p_state, 'DescriptorHandle')
+            descr = mdib.descriptions.handle.getOne(descr_handle)
+            state = sm.generic_state_from_p(p_state, mdib.nsmapper, descr)
+            # add reference to real descriptor
+            descr = mdib.descriptions.handle.getOne(state.descriptorHandle)
+
+            ret.append(state)
+
+        return ret
 

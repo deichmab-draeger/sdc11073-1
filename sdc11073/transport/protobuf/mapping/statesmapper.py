@@ -1,5 +1,8 @@
+import inspect
+import traceback
 from sdc11073.mdib import statecontainers as sc
 from .pmtypesmapper import generic_from_p, generic_to_p
+from .mapping_common import name_to_p, attr_name_to_p, p_name_from_pm_name
 from org.somda.sdc.proto.model.biceps.mdsstate_pb2 import MdsStateMsg
 from org.somda.sdc.proto.model.biceps.setvalueoperationstate_pb2 import SetValueOperationStateMsg
 from org.somda.sdc.proto.model.biceps.setstringoperationstate_pb2 import SetStringOperationStateMsg
@@ -25,6 +28,7 @@ from org.somda.sdc.proto.model.biceps.alertconditionstate_pb2 import AlertCondit
 from org.somda.sdc.proto.model.biceps.limitalertconditionstate_pb2 import LimitAlertConditionStateMsg
 from org.somda.sdc.proto.model.biceps.locationcontextstate_pb2 import LocationContextStateMsg
 from org.somda.sdc.proto.model.biceps.patientcontextstate_pb2 import PatientContextStateMsg
+from org.somda.sdc.proto.model.biceps.abstractstateoneof_pb2 import AbstractStateOneOfMsg
 
 
 _to_cls= {}
@@ -57,13 +61,99 @@ _to_cls[sc.PatientContextStateContainer] = PatientContextStateMsg
 # invert for other direction lookup
 _from_cls = dict((v, k) for (k, v) in _to_cls.items())
 
+_abstract_state_to_oneof_p_lookup = {
+sc.NumericMetricStateContainer: ('abstract_metric_state_one_of', 'numeric_metric_state'),
+sc.StringMetricStateContainer: ('abstract_metric_state_one_of', 'string_metric_state_one_of','string_metric_state'),
+sc.EnumStringMetricStateContainer: ('abstract_metric_state_one_of', 'string_metric_state_one_of','enum_string_metric_state'),
+sc.RealTimeSampleArrayMetricStateContainer: ('abstract_metric_state_one_of', 'real_time_sample_array_metric_state'),
+sc.VmdStateContainer: ('abstract_device_component_state_one_of', 'abstract_complex_device_component_state_one_of', 'vmd_state'),
+sc.MdsStateContainer: ('abstract_device_component_state_one_of', 'abstract_complex_device_component_state_one_of', 'mds_state'),
+sc.ChannelStateContainer: ('abstract_device_component_state_one_of', 'channel_state'),
+sc.BatteryStateContainer: ('abstract_device_component_state_one_of', 'battery_state'),
+sc.ClockStateContainer: ('abstract_device_component_state_one_of', 'clock_state'),
+sc.ScoStateContainer: ('abstract_device_component_state_one_of', 'sco_state'),
+sc.SystemContextStateContainer: ('abstract_device_component_state_one_of', 'system_context_state'),
+sc.ScoStateContainer: ('abstract_device_component_state_one_of', 'sco_state'),
+sc.AlertSystemStateContainer: ('abstract_alert_state_one_of', 'alert_system_state'),
+sc.AlertSignalStateContainer: ('abstract_alert_state_one_of', 'alert_signal_state'),
+sc.AlertConditionStateContainer: ('abstract_alert_state_one_of', 'alert_condition_state_one_of', 'alert_condition_state'),
+sc.LimitAlertConditionStateContainer: ('abstract_alert_state_one_of', 'alert_condition_state_one_of', 'limit_alert_condition_state'),
+sc.ActivateOperationStateContainer: ('abstract_operation_state_one_of', 'activate_operation_state'),
+sc.SetAlertStateOperationStateContainer: ('abstract_operation_state_one_of', 'set_alert_state_operation_state'),
+sc.SetComponentStateOperationStateContainer: ('abstract_operation_state_one_of', 'set_component_state_operation_state'),
+sc.SetContextStateOperationStateContainer: ('abstract_operation_state_one_of', 'set_context_state_operation_state'),
+sc.SetMetricStateOperationStateContainer: ('abstract_operation_state_one_of', 'set_metric_state_operation_state'),
+sc.SetStringOperationStateContainer: ('abstract_operation_state_one_of', 'set_string_operation_state'),
+sc.SetValueOperationStateContainer: ('abstract_operation_state_one_of', 'set_value_operation_state'),
+}
 
-def generic_state_to_p(descr, p):
+def abstract_state_to_oneof_p(state, p):
+    try:
+        member_names = _abstract_state_to_oneof_p_lookup[state.__class__]
+    except:
+        print(traceback.format_exc())
+        print('bah')
+    tmp = p
+    for n in member_names:
+        tmp = getattr(tmp, n)
+    generic_to_p(state, tmp)
+
+
+_to_special_funcs = {AbstractStateOneOfMsg: abstract_state_to_oneof_p
+                     }
+
+
+def generic_state_to_p(state, p):
     if p is None:
-        cls = _to_cls[descr.__class__]
+        cls = _to_cls[state.__class__]
         p = cls()
-    generic_to_p(descr, p)
+    special_handler = _to_special_funcs.get(state.__class__) or _to_special_funcs.get(p.__class__)
+    if special_handler:
+        special_handler(state, p)
+    else:
+        generic_to_p(state, p)
     return p
+
+
+def find_abstract_state_one_of(p):
+    for path_elements in _abstract_state_to_oneof_p_lookup.values():
+        tmp = p
+        for path_element in path_elements[:-1]:
+            tmp = getattr(tmp, path_element)
+        if tmp.HasField(path_elements[-1]):
+            return getattr(tmp, path_elements[-1])
+    raise ValueError(f'found no data in {p.__class__.__name__}')
+
+
+def p_walk(p):
+    # does not work for "one_of" instances
+    pm_cls = _from_cls[p.__class__]
+    classes = inspect.getmro(pm_cls)
+    p_current_entry_point = None
+    for tmp_cls in classes:
+        if tmp_cls.__name__.startswith('_'):
+            # convention: if a class name starts with underscore, it is not part of biceps inheritance hierarchy
+            continue
+        try:
+            names = tmp_cls._props  # pylint: disable=protected-access
+        except:
+            continue
+        # determine p_current_entry_point
+        if p_current_entry_point is None:
+            p_current_entry_point = p
+        else:
+            # find parent class members entry point
+            p_name = name_to_p(tmp_cls.__name__)
+            p_current_entry_point = getattr(p_current_entry_point, p_name)
+        yield(tmp_cls, p_current_entry_point, names)
+
+
+def p_get_value(p, pm_attr_name):
+    for tmp_cls, p_current_entry_point, names in p_walk(p):
+        if pm_attr_name in names:
+            p_name = p_name_from_pm_name(p_current_entry_point, tmp_cls, pm_attr_name)
+            value = getattr(p_current_entry_point, p_name)
+            return value
 
 
 def generic_state_from_p(p, nsmap, descr):

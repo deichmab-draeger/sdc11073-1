@@ -24,16 +24,18 @@ class AbstractStateContainer(ContainerBase):
     isContextState = False
 
     ext_Extension = cp.ExtensionNodeProperty()
+    DescriptorHandle = cp.NodeAttributeProperty('DescriptorHandle', isOptional=False)
+    descriptorHandle = DescriptorHandle
     DescriptorVersion = cp.IntegerAttributeProperty('DescriptorVersion', defaultPyValue=0) # an integer
     StateVersion = cp.IntegerAttributeProperty('StateVersion', defaultPyValue=0) # an integer
-    _props=('ext_Extension', 'DescriptorVersion', 'StateVersion')
+    _props=('ext_Extension', 'DescriptorHandle', 'DescriptorVersion', 'StateVersion')
 
     stateVersion = StateVersion   # lower case for backwards compatibility
     
     def __init__(self, nsmapper, descriptorContainer):
-        self.descriptorContainer = descriptorContainer
-        self.descriptorHandle = descriptorContainer.handle
         super(AbstractStateContainer, self).__init__(nsmapper)
+        self.descriptorContainer = descriptorContainer
+        self.DescriptorHandle = descriptorContainer.handle
         self.DescriptorVersion = descriptorContainer.DescriptorVersion
 
     def updateNode(self):
