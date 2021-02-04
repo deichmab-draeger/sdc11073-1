@@ -1,3 +1,5 @@
+import logging
+import traceback
 from collections import namedtuple
 import grpc
 
@@ -146,29 +148,45 @@ class GetService(sdc_services_pb2_grpc.GetServiceServicer):
     def __init__(self, mdib):
         super().__init__()
         self._mdib = mdib
+        self._logger = logging.getLogger('pysdc.grpc.dev.GetService')
 
     def GetMdib(self, request, context):
-        response = GetMdibResponse()
-        _mdib_to_p(self._mdib, response.payload.mdib.md_description.mds, response.payload.mdib.md_state.state)
-        response.payload.mdib.a_mdib_version_group.a_mdib_version.value = self._mdib.mdibVersion
-        response.payload.mdib.a_mdib_version_group.a_sequence_id = self._mdib.sequenceId
-        return response
+        try:
+            response = GetMdibResponse()
+            _mdib_to_p(self._mdib, response.payload.mdib.md_description.mds, response.payload.mdib.md_state.state)
+            response.payload.mdib.a_mdib_version_group.a_mdib_version.value = self._mdib.mdibVersion
+            response.payload.mdib.a_mdib_version_group.a_sequence_id = self._mdib.sequenceId
+            return response
+        except:
+            print(traceback.format_exc())
+            self._logger.error(traceback.format_exc())
+            raise
 
     def GetMdDescription(self, request, context):
-        response = GetMdDescriptionResponse()
-        p_mds_list = response.payload.md_description.mds
-        src_mds_list = self._mdib.descriptions.NODETYPE.get(domTag('MdsDescriptor'))
-        for scr_mds in src_mds_list:
-            p_mds = p_mds_list.add()  # this creates a new entry in list with correct type
-            _mds_to_p(self._mdib, scr_mds, p_mds)
-        return response
+        try:
+            response = GetMdDescriptionResponse()
+            p_mds_list = response.payload.md_description.mds
+            src_mds_list = self._mdib.descriptions.NODETYPE.get(domTag('MdsDescriptor'))
+            for scr_mds in src_mds_list:
+                p_mds = p_mds_list.add()  # this creates a new entry in list with correct type
+                _mds_to_p(self._mdib, scr_mds, p_mds)
+            return response
+        except:
+            print(traceback.format_exc())
+            self._logger.error(traceback.format_exc())
+            raise
 
     def GetMdState(self, request, context):
-        requested_handles = request.payload.handle_ref
-        if not requested_handles:
-            states = self._mdib.states.objects
-        else:
-            states = [self._mdib.states.descriptorHandle.getOne(h) for h in requested_handles]
-        response = GetMdStateResponse()
-        _md_state_to_p(states, response.payload.md_state.state)
-        return response
+        try:
+            requested_handles = request.payload.handle_ref
+            if not requested_handles:
+                states = self._mdib.states.objects
+            else:
+                states = [self._mdib.states.descriptorHandle.getOne(h) for h in requested_handles]
+            response = GetMdStateResponse()
+            _md_state_to_p(states, response.payload.md_state.state)
+            return response
+        except:
+            print(traceback.format_exc())
+            self._logger.error(traceback.format_exc())
+            raise

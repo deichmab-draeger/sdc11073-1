@@ -1,4 +1,5 @@
 import unittest
+import logging
 from decimal import Decimal
 import time
 from sdc11073 import pmtypes
@@ -8,10 +9,32 @@ from sdc11073.mdib import statecontainers as sc
 from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
 from sdc11073.transport.protobuf.mapping import statesmapper as sm
 
+def _start_logger():
+    logger = logging.getLogger('pysdc.grpc.map')
+    logger.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    # create formatter
+    #formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    formatter = logging.Formatter("%(name)s - %(message)s")
+    # add formatter to ch
+    ch.setFormatter(formatter)
+    # add ch to logger
+    logger.addHandler(ch)
+    return ch
+
+def _stop_logger(handler):
+    logger = logging.getLogger('pysdc.grpc.map')
+    logger.setLevel(logging.WARNING)
+    logger.removeHandler(handler)
+
 class TestDescriptorsMapper(unittest.TestCase):
     def setUp(self) -> None:
+        self._log_handler = _start_logger()
         self.descr = AbstractDescriptorContainer(nsmap, 'my_handle', 'parent_handle')
         self.descr.DescriptorVersion = 42
+
+    def tearDown(self) -> None:
+        _stop_logger(self._log_handler)
 
     def check_convert(self,obj):
         obj_p = sm.generic_state_to_p(obj, None)

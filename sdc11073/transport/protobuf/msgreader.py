@@ -1,22 +1,21 @@
 from typing import List
-from sdc11073 import namespaces
-from sdc11073 import pmtypes
 from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
 from .mapping import descriptorsmapper as dm
 from .mapping import statesmapper as sm
-from .mapping import pmtypesmapper as pm
+
 
 class MdibStructureError(Exception):
     pass
 
 
 class MessageReader(object):
-    ''' This class does all the conversions from protobuf messages to MDIB objects.'''
-    def __init__(self, logger, log_prefix = ''):
+    """ This class does all the conversions from protobuf messages to MDIB objects."""
+    def __init__(self, logger, log_prefix=''):
         self._logger = logger
         self._log_prefix = log_prefix
 
-    def _read_abstract_complex_device_component_descriptor_children(self, p_descr, mdib):
+    @staticmethod
+    def _read_abstract_complex_device_component_descriptor_children(p_descr, mdib):
         ret = []
         p_acdcd = p_descr.abstract_complex_device_component_descriptor
         parent_handle = p_acdcd.abstract_device_component_descriptor.abstract_descriptor.a_handle
@@ -84,18 +83,35 @@ class MessageReader(object):
             ret.extend(self._read_abstract_complex_device_component_descriptor_children(p_mds, mdib))
         return ret
 
-    def readMdState(self, p_md_state, mdib):
+    # def readMdState(self, p_md_state, mdib):
+    #     ret = []
+    #     for p_abstract_state in p_md_state.state:
+    #         p_state = sm.find_one_of_state(p_abstract_state)
+    #         descr_handle = sm.p_get_value(p_state, 'DescriptorHandle')
+    #         descr = mdib.descriptions.handle.getOne(descr_handle)
+    #         state = sm.generic_state_from_p(p_state, mdib.nsmapper, descr)
+    #         ret.append(state)
+    #
+    #     return ret
+
+    # def read_abstract_states(self, p_abstract_states, mdib):
+    #     states = [sm.find_one_of_state(tmp) for tmp in p_abstract_states]
+    #     return self.read_states(states, mdib)
+
+    @staticmethod
+    def read_states(p_states, mdib):
         ret = []
-        for p_abstract_state in p_md_state.state:
-            p_state = sm.find_abstract_state_one_of(p_abstract_state)
-            descr = None
+        for p_state in p_states:
             descr_handle = sm.p_get_value(p_state, 'DescriptorHandle')
             descr = mdib.descriptions.handle.getOne(descr_handle)
             state = sm.generic_state_from_p(p_state, mdib.nsmapper, descr)
-            # add reference to real descriptor
-            descr = mdib.descriptions.handle.getOne(state.descriptorHandle)
-
             ret.append(state)
-
         return ret
 
+    @staticmethod
+    def read_descriptors(p_descriptors, parent_handle,  mdib):
+        ret = []
+        for p_descr in p_descriptors:
+            descr = dm.generic_descriptor_from_p(p_descr, parent_handle, mdib.nsmapper)
+            ret.append(descr)
+        return ret

@@ -1,6 +1,7 @@
+import logging
 from sdc11073.mdib import descriptorcontainers as dc
 from .pmtypesmapper import generic_from_p, generic_to_p
-#from org.somda.sdc.proto.model .biceps
+from .mapping_common import find_one_of_p_for_container, find_populated_one_of
 from org.somda.sdc.proto.model.biceps.mdsdescriptor_pb2 import MdsDescriptorMsg
 from org.somda.sdc.proto.model.biceps.vmddescriptor_pb2 import VmdDescriptorMsg
 from org.somda.sdc.proto.model.biceps.channeldescriptor_pb2 import ChannelDescriptorMsg
@@ -34,7 +35,12 @@ from org.somda.sdc.proto.model.biceps.operatorcontextdescriptor_pb2 import Opera
 from org.somda.sdc.proto.model.biceps.meanscontextdescriptor_pb2 import MeansContextDescriptorMsg
 from org.somda.sdc.proto.model.biceps.ensemblecontextdescriptor_pb2 import EnsembleContextDescriptorMsg
 from org.somda.sdc.proto.model.biceps.systemcontextdescriptor_pb2 import SystemContextDescriptorMsg
-
+from org.somda.sdc.proto.model.biceps.abstractdescriptoroneof_pb2 import AbstractDescriptorOneOfMsg
+from org.somda.sdc.proto.model.biceps.abstractalertdescriptoroneof_pb2 import AbstractAlertDescriptorOneOfMsg
+from org.somda.sdc.proto.model.biceps.abstractdevicecomponentdescriptoroneof_pb2 import AbstractDeviceComponentDescriptorOneOfMsg
+from org.somda.sdc.proto.model.biceps.abstractcomplexdevicecomponentdescriptoroneof_pb2 import AbstractComplexDeviceComponentDescriptorOneOfMsg
+from org.somda.sdc.proto.model.biceps.abstractsetstateoperationdescriptoroneof_pb2 import AbstractSetStateOperationDescriptorOneOfMsg
+_logger = logging.getLogger('pysdc.grpc.map.descriptor')
 
 _to_cls= {}
 _to_cls[dc.MdsDescriptorContainer] = MdsDescriptorMsg
@@ -71,199 +77,62 @@ _to_cls[dc.SystemContextDescriptorContainer] = SystemContextDescriptorMsg
 _from_cls = dict((v, k) for (k, v) in _to_cls.items())
 
 
-def alert_condition_descriptor_to_oneof_p(
-        acd:dc.AbstractAlertDescriptorContainer,
-        p:AlertConditionDescriptorOneOfMsg)->AlertConditionDescriptorOneOfMsg:
-    if p is None:
-        p = AlertConditionDescriptorOneOfMsg()
-    if isinstance(acd, dc.LimitAlertConditionDescriptorContainer):
-        generic_to_p(acd, p.limit_alert_condition_descriptor, '   (alert_condition_descriptor_to_oneof_p)')
-    elif isinstance(acd, dc.AlertConditionDescriptorContainer):
-        generic_to_p(acd, p.alert_condition_descriptor, '   (alert_condition_descriptor_to_oneof_p)')
-    else:
-        raise TypeError(f'alert_condition_descriptor_to_oneof_p cannot handle cls {acd.__class__}')
-    return p
-
-
-def alert_condition_descriptor_from_oneof_p(p:AlertConditionDescriptorOneOfMsg, parent_handle, nsmap) -> dc.AbstractAlertDescriptorContainer:
-    if p.HasField('limit_alert_condition_descriptor'):
-        ret = dc.LimitAlertConditionDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p.limit_alert_condition_descriptor, ret, indent='   (alert_condition_descriptor_from_oneof_p)')
-        return ret
-    elif p.HasField('alert_condition_descriptor'):
-        ret = dc.AlertConditionDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p.alert_condition_descriptor, ret, indent='   (alert_condition_descriptor_from_oneof_p)')
-        return ret
-    else:
-        raise TypeError(f'alert_condition_descriptor_from_oneof_p cannot handle cls {p.__class__}')
-
-
-def stringmetric_descriptor_to_p(descr: dc.StringMetricDescriptorContainer,
-                           p: [StringMetricDescriptorOneOfMsg, None]) -> StringMetricDescriptorOneOfMsg:
-    if p is None:
-        p = StringMetricDescriptorOneOfMsg()
-    if isinstance(descr, dc.EnumStringMetricDescriptorContainer):
-        generic_to_p(descr, p.enum_string_metric_descriptor)
-    elif isinstance(descr, dc.StringMetricDescriptorContainer):
-        generic_to_p(descr, p.string_metric_descriptor)
-    else:
-        raise TypeError(f'metric_descriptor_to_p cannot handle cls {descr.__class__}')
-    return p
-
-
-def abstract_metric_descriptor_to_p(descr: dc.AbstractMetricDescriptorContainer,
-                           p: [AbstractMetricDescriptorOneOfMsg, None]) -> AbstractMetricDescriptorOneOfMsg:
-    if p is None:
-        p = AbstractMetricDescriptorOneOfMsg()
-    if isinstance(descr, dc.NumericMetricDescriptorContainer):
-        generic_to_p(descr, p.numeric_metric_descriptor)
-    elif isinstance(descr, dc.StringMetricDescriptorContainer):
-        stringmetric_descriptor_to_p(descr, p.string_metric_descriptor_one_of)
-    elif isinstance(descr, dc.RealTimeSampleArrayMetricDescriptorContainer):
-        generic_to_p(descr, p.real_time_sample_array_metric_descriptor)
-    else:
-        raise TypeError(f'metric_descriptor_to_p cannot handle cls {descr.__class__}')
-    return p
-
-
-def string_metric_descriptor_from_oneof_p(p, parent_handle, nsmap):
-    if p.HasField('enum_string_metric_descriptor'):
-        ret = dc.EnumStringMetricDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p.enum_string_metric_descriptor, ret, indent='   (string_metric_descriptor_from_oneof_p)')
-        return ret
-    elif p.HasField('string_metric_descriptor'):
-        ret = dc.StringMetricDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p.string_metric_descriptor, ret, indent='   (string_metric_descriptor_from_oneof_p)')
-        return ret
-    else:
-        raise TypeError(f'string_metric_descriptor_from_oneof_p cannot handle cls {p.__class__}')
-
-
-
-def abstract_metric_descriptor_from_oneof_p(p, parent_handle, nsmap):
-    if p.HasField('numeric_metric_descriptor'):
-        ret = dc.NumericMetricDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p.numeric_metric_descriptor, ret, indent='   (abstract_metric_descriptor_from_oneof_p)')
-        return ret
-    elif p.HasField('string_metric_descriptor_one_of'):
-        ret = string_metric_descriptor_from_oneof_p(p.string_metric_descriptor_one_of, parent_handle, nsmap)
-        return ret
-    elif p.HasField('real_time_sample_array_metric_descriptor'):
-        ret = dc.RealTimeSampleArrayMetricDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p.real_time_sample_array_metric_descriptor, ret, indent='   (abstract_metric_descriptor_from_oneof_p)')
-        return ret
-    elif p.HasField('distribution_sample_array_metric_descriptor'):
-        ret = dc.DistributionSampleArrayMetricDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p.distribution_sample_array_metric_descriptor, ret,
-                       indent='   (abstract_metric_descriptor_from_oneof_p)')
-        return ret
-    else:
-        raise TypeError(f'alert_condition_descriptor_from_oneof_p cannot handle cls {p.__class__}')
-
-
-def abstract_operation_descriptor_to_p(descr: dc.AbstractOperationDescriptorContainer,
-                           p: [AbstractOperationDescriptorOneOfMsg, None]) -> AbstractOperationDescriptorOneOfMsg:
-    if p is None:
-        p = AbstractOperationDescriptorOneOfMsg()
-    if isinstance(descr, dc.ActivateOperationDescriptorContainer):
-        generic_to_p(descr, p.abstract_set_state_operation_descriptor_one_of.activate_operation_descriptor)
-    elif isinstance(descr, dc.SetAlertStateOperationDescriptorContainer):
-        generic_to_p(descr, p.abstract_set_state_operation_descriptor_one_of.set_alert_state_operation_descriptor)
-    elif isinstance(descr, dc.SetComponentStateOperationDescriptorContainer):
-        generic_to_p(descr,
-                     p.abstract_set_state_operation_descriptor_one_of.set_component_state_operation_descriptor)
-    elif isinstance(descr, dc.SetContextStateOperationDescriptorContainer):
-        generic_to_p(descr,
-                     p.abstract_set_state_operation_descriptor_one_of.set_context_state_operation_descriptor)
-    elif isinstance(descr, dc.SetMetricStateOperationDescriptorContainer):
-        generic_to_p(descr,
-                     p.abstract_set_state_operation_descriptor_one_of.set_metric_state_operation_descriptor)
-    elif isinstance(descr, dc.SetStringOperationDescriptorContainer):
-        generic_to_p(descr, p.set_string_operation_descriptor)
-    elif isinstance(descr, dc.SetValueOperationDescriptorContainer):
-        generic_to_p(descr, p.set_value_operation_descriptor)
-    else:
-        raise TypeError(f'abstract_operation_descriptor_to_p cannot handle cls {descr.__class__}')
-    return p
-
-
-def abstract_operation_descriptor_from_oneof_p(p: AbstractOperationDescriptorOneOfMsg,
-                                               parent_handle, nsmap) -> dc.AbstractOperationDescriptorContainer:
-    p_src = p.abstract_set_state_operation_descriptor_one_of  # a shortcut for better readability
-    if p_src.HasField('activate_operation_descriptor'):
-        ret = dc.ActivateOperationDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p_src.activate_operation_descriptor, ret, indent='   (abstract_operation_descriptor_from_oneof_p)')
-        return ret
-    elif p_src.HasField('set_alert_state_operation_descriptor'):
-        ret = dc.SetAlertStateOperationDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p_src.set_alert_state_operation_descriptor, ret, indent='   (abstract_operation_descriptor_from_oneof_p)')
-        return ret
-    elif p_src.HasField('set_component_state_operation_descriptor'):
-        ret = dc.SetComponentStateOperationDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p_src.set_component_state_operation_descriptor, ret, indent='   (abstract_operation_descriptor_from_oneof_p)')
-        return ret
-    elif p_src.HasField('set_context_state_operation_descriptor'):
-        ret = dc.SetContextStateOperationDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p_src.set_context_state_operation_descriptor, ret, indent='   (abstract_operation_descriptor_from_oneof_p)')
-        return ret
-    elif p_src.HasField('set_metric_state_operation_descriptor'):
-        ret = dc.SetMetricStateOperationDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p_src.set_metric_state_operation_descriptor, ret, indent='   (abstract_operation_descriptor_from_oneof_p)')
-        return ret
-    elif p.HasField('set_string_operation_descriptor'):
-        ret = dc.SetStringOperationDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p.set_string_operation_descriptor, ret, indent='   (abstract_operation_descriptor_from_oneof_p)')
-        return ret
-    elif p.HasField('set_value_operation_descriptor'):
-        ret = dc.SetValueOperationDescriptorContainer(nsmap, None, parent_handle)
-        generic_from_p(p.set_value_operation_descriptor, ret, indent='   (abstract_operation_descriptor_from_oneof_p)')
-        return ret
-    else:
-        raise TypeError(f'abstract_operation_descriptor_from_oneof_p cannot handle cls {p.__class__}')
-
-
-
-_to_special_funcs = {
-    dc.LimitAlertConditionDescriptorContainer: alert_condition_descriptor_to_oneof_p,
-    dc.AlertConditionDescriptorContainer: alert_condition_descriptor_to_oneof_p,
-    dc.NumericMetricDescriptorContainer: abstract_metric_descriptor_to_p,
-    dc.StringMetricDescriptorContainer: abstract_metric_descriptor_to_p,
-    dc.EnumStringMetricDescriptorContainer: abstract_metric_descriptor_to_p,
-    dc.RealTimeSampleArrayMetricDescriptorContainer: abstract_metric_descriptor_to_p,
-    dc.ActivateOperationDescriptorContainer: abstract_operation_descriptor_to_p,
-    dc.SetStringOperationDescriptorContainer: abstract_operation_descriptor_to_p,
-    dc.SetValueOperationDescriptorContainer: abstract_operation_descriptor_to_p,
-    dc.SetContextStateOperationDescriptorContainer: abstract_operation_descriptor_to_p,
+_one_of_descr_fields = {
+    AbstractDescriptorOneOfMsg: ('abstract_alert_descriptor_one_of',
+                                 'abstract_device_component_descriptor_one_of',
+                                 'abstract_metric_descriptor_one_of',
+                                 'abstract_multi_descriptor_one_of',
+                                 'abstract_operation_descriptor_one_of'),
+    AbstractMetricDescriptorOneOfMsg: ('numeric_metric_descriptor',
+                                       'real_time_sample_array_metric_descriptor',
+                                       'string_metric_descriptor_one_of',
+                                       'distribution_sample_array_metric_descriptor'),
+    StringMetricDescriptorOneOfMsg: ('enum_string_metric_descriptor',
+                                     'string_metric_descriptor'),
+    AbstractAlertDescriptorOneOfMsg: ('alert_condition_descriptor_one_of',
+                                      'alert_signal_descriptor',
+                                      'alert_system_descriptor'),
+    AlertConditionDescriptorOneOfMsg: ('alert_condition_descriptor',
+                                       'limit_alert_condition_descriptor'),
+    AbstractDeviceComponentDescriptorOneOfMsg: ('abstract_complex_device_component_descriptor_one_of',
+                                                'abstract_device_component_descriptor',
+                                                'battery_descriptor',
+                                                'channel_descriptor',
+                                                'clock_descriptor',
+                                                'sco_descriptor',
+                                                'system_context_descriptor'),
+    AbstractComplexDeviceComponentDescriptorOneOfMsg: ('mds_descriptor', 'vmd_descriptor'),
+    AbstractOperationDescriptorOneOfMsg: ('abstract_set_state_operation_descriptor_one_of',
+                                          'set_string_operation_descriptor',
+                                          'set_value_operation_descriptor'),
+    AbstractSetStateOperationDescriptorOneOfMsg: ('activate_operation_descriptor',
+                                                  'set_alert_state_operation_descriptor',
+                                                  'set_component_state_operation_descriptor',
+                                                  'set_context_state_operation_descriptor',
+                                                  'set_metric_state_operation_descriptor'),
 }
 
-_from_special_funcs = {
-    AlertConditionDescriptorOneOfMsg: alert_condition_descriptor_from_oneof_p,
-    AbstractOperationDescriptorOneOfMsg: abstract_operation_descriptor_from_oneof_p,
-    AbstractMetricDescriptorOneOfMsg: abstract_metric_descriptor_from_oneof_p,
-}
+
+# def find_one_of_descr(p):
+#     return find_populated_one_of(p, _one_of_descr_fields)
+
 
 def generic_descriptor_to_p(descr, p):
-    special_handler = _to_special_funcs.get(descr.__class__)
-    if special_handler:
-        print(f'special handling cls={descr.__class__.__name__}, handler = {special_handler.__name__}')
-        p = special_handler(descr, p)
-        print(f'special handling cls={descr.__class__.__name__} done')
+    try:
+        if p is None:
+            cls = _to_cls[descr.__class__]
+            p = cls()
+        if p.__class__ in _one_of_descr_fields:
+            p = find_one_of_p_for_container(descr, p)
+        generic_to_p(descr, p)
         return p
-    if p is None:
-        cls = _to_cls[descr.__class__]
-        p = cls()
-    generic_to_p(descr, p, indent='    ')
-    return p
+    except:
+        raise
 
 
 def generic_descriptor_from_p(p, parent_handle, nsmap):
-    special_handler = _from_special_funcs.get(p.__class__)
-    if special_handler:
-        print(f'special handling cls={p.__class__.__name__}, handler = {special_handler.__name__}')
-        ret = special_handler(p, parent_handle, nsmap)
-        print(f'special handling cls={p.__class__.__name__} done')
-        return ret
-    cls = _from_cls[p.__class__]
+    p_field = find_populated_one_of(p, _one_of_descr_fields)
+    cls = _from_cls[p_field.__class__]
     ret = cls(nsmap, None, parent_handle)
-    generic_from_p(p, ret)
+    generic_from_p(p_field, ret)
     return ret

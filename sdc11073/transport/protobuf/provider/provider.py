@@ -7,14 +7,19 @@ import grpc
 from org.somda.sdc.proto.model import sdc_services_pb2_grpc
 from .getservice import GetService
 from .setservice import SetService
+from .mdibreportingservice import MdibReportingService
+from . import subscriptionmgr
 from .localizationservice import LocalizationService
 from ..msgreader import MessageReader
 from .archiveservice import ArchiveService
 from ....sdcdevice import intervaltimer
+from ....sdcdevice import sco
 from sdc11073 import namespaces, pmtypes
 from sdc11073.location import SdcLocation
+from sdc11073 import loghelper
 
-class SdcDevice(object):
+
+class GSdcDevice(object):
     def __init__(self, ws_discovery, my_uuid, model, device, deviceMdibContainer, validate=True, roleProvider=None, sslContext=None,
                  logLevel=None, max_subscription_duration=7200, log_prefix='',
                  chunked_messages=False): #pylint:disable=too-many-arguments
@@ -27,7 +32,10 @@ class SdcDevice(object):
         #                         log_prefix=log_prefix, chunked_messages=chunked_messages)
         self._wsdiscovery = ws_discovery
         #self._logger = self._handler._logger
+        self._log_prefix = ''
+        self._sslContext=None
         self._mdib = deviceMdibContainer
+        self._subscriptions_manager = self._mkSubscriptionManager(max_subscription_duration)
         self._location = None
         self._server = None
         self._server_thread = None
@@ -35,17 +43,22 @@ class SdcDevice(object):
         self.collectRtSamplesPeriod = 0.1  # in seconds
         self.get_service = GetService(self._mdib)
         self.set_service = SetService(self._mdib)
+        self.mdib_reporting_service = MdibReportingService(self._subscriptions_manager)
         self.localization_service = LocalizationService(self._mdib)
         self.archive_service = ArchiveService(self._mdib)
         self._port_number = None  # ip listen port
         self.epr = 'test_epr'
-        self._logger = logging.getLogger('sdc.device')
+        self._logger = loghelper.getLoggerAdapter('sdc.device', log_prefix) # logging.getLogger('sdc.device')
         self.msg_reader = MessageReader(self._logger)
+        self.product_roles = roleProvider or self._mk_default_role_handlers()
+
         deviceMdibContainer.setSdcDevice(self)
+        self.scoOperationsRegistry = self._mkScoOperationsRegistry(handle='_sco')
+
 
     def startAll(self, startRealtimeSampleLoop=True, shared_http_server=None):
-        # if self.product_roles is not None:
-        #     self.product_roles.initOperations(self._mdib, self._scoOperationsRegistry)
+        if self.product_roles is not None:
+            self.product_roles.initOperations(self._mdib, self.scoOperationsRegistry)
         self._server_thread = threading.Thread(target=self._serve, name='grpc_server')
         self._server_thread.daemon = True
         self._server_thread.start()
@@ -61,6 +74,20 @@ class SdcDevice(object):
             self._runRtSampleThread = False
             self._rtSampleSendThread.join()
             self._rtSampleSendThread = None
+        self._subscriptions_manager.stop()
+
+    def start_realtimesample_loop(self):
+        if not self._rtSampleSendThread:
+            self._runRtSampleThread = True
+            self._rtSampleSendThread = threading.Thread(target=self._rtSampleSendLoop, name='DevRtSampleSendLoop')
+            self._rtSampleSendThread.daemon = True
+            self._rtSampleSendThread.start()
+
+    def stop_realtimesample_loop(self):
+        if self._rtSampleSendThread:
+            self._runRtSampleThread = False
+            self._rtSampleSendThread.join()
+            self._rtSampleSendThread = None
 
     @property
     def mdib(self):
@@ -70,6 +97,7 @@ class SdcDevice(object):
         self._server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         sdc_services_pb2_grpc.add_GetServiceServicer_to_server(self.get_service, self._server)
         sdc_services_pb2_grpc.add_SetServiceServicer_to_server(self.set_service, self._server)
+        sdc_services_pb2_grpc.add_MdibReportingServiceServicer_to_server(self.mdib_reporting_service, self._server)
         sdc_services_pb2_grpc.add_LocalizationServiceServicer_to_server(self.localization_service, self._server)
         sdc_services_pb2_grpc.add_ArchiveServiceServicer_to_server(self.archive_service, self._server)
         self._port_number = self._server.add_insecure_port('[::]:50051')
@@ -81,37 +109,36 @@ class SdcDevice(object):
 
     def sendMetricStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending metric state updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicMetricReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
+        self._subscriptions_manager.sendEpisodicMetricReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
                                                             self.mdib.sequenceId)
 
     def sendAlertStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending alert updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicAlertReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
+        self._subscriptions_manager.sendEpisodicAlertReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
                                                            self.mdib.sequenceId)
 
     def sendComponentStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending component state updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicComponentStateReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
+        self._subscriptions_manager.sendEpisodicComponentStateReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
                                                                     self.mdib.sequenceId)
 
     def sendContextStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending context updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicContextReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
+        self._subscriptions_manager.sendEpisodicContextReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
                                                              self.mdib.sequenceId)
 
     def sendOperationalStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending operational state updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicOperationalStateReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
+        self._subscriptions_manager.sendEpisodicOperationalStateReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
                                                                       self.mdib.sequenceId)
 
     def sendRealtimeSamplesStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending real time sample state updates {}', stateUpdates)
-        self._subscriptionsManager.sendRealtimeSamplesReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                             self.mdib.sequenceId)
+        self._subscriptions_manager.sendRealtimeSamplesReport(stateUpdates, self._mdib.nsmapper, mdibVersion, self.mdib.sequenceId)
 
     def sendDescriptorUpdates(self, mdibVersion, updated, created, deleted, updated_states):
         self._logger.debug('sending descriptor updates updated={} created={} deleted={}', updated, created, deleted)
-        self._subscriptionsManager.sendDescriptorUpdates(updated, created, deleted, updated_states,
+        self._subscriptions_manager.sendDescriptorUpdates(updated, created, deleted, updated_states,
                                                          self._mdib.nsmapper,
                                                          mdibVersion,
                                                          self.mdib.sequenceId)
@@ -214,3 +241,15 @@ class SdcDevice(object):
     def _getXAddrs(self):
         return [f'localhost:{self._port_number}'] # for now...
         #xaddrs = self._server
+
+    def _mkSubscriptionManager(self, max_subscription_duration):
+        return subscriptionmgr.SubscriptionsManager(self._mdib.sdc_definitions,
+                                                    max_subscription_duration,
+                                                    log_prefix=self._log_prefix)
+
+    def _mkScoOperationsRegistry(self, handle):
+        return sco.ScoOperationsRegistry(self._subscriptions_manager, self._mdib, handle, log_prefix=self._log_prefix)
+
+    def _mk_default_role_handlers(self):
+        from sdc11073 import roles
+        return roles.product.MinimalProduct(self._log_prefix)

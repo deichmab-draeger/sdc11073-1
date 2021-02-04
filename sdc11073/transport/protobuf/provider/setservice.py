@@ -21,10 +21,6 @@ class SetService(sdc_services_pb2_grpc.SetServiceServicer):
         response = sdc_messages_pb2.SetMetricStateResponse()
         return response
 
-    def SetMetricState(self, request, context):
-        response = sdc_messages_pb2.SetMetricStateResponse()
-        return response
-
     def SetComponentState(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

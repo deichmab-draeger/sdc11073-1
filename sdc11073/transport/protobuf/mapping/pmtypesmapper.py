@@ -56,7 +56,8 @@ from google.protobuf.wrappers_pb2 import StringValue
 from google.protobuf.duration_pb2 import Duration
 from decimal import Decimal
 from .mapping_common import name_to_p, attr_name_to_p, p_name_from_pm_name
-_logger = logging.getLogger('pysdc.grpc.pmtypes_mapper')
+
+_logger = logging.getLogger('pysdc.grpc.map.pmtypes')
 
 #  str <->StringValue
 def string_value_to_p(s: (str, None), p: (StringValue, None)) -> StringValue:
@@ -342,9 +343,9 @@ def generic_to_p(pm_src, p, indent='', to_special_funcs=None):
         if special_handler is None:
             special_handler = _to_special_funcs.get(pm_src.__class__)
         if special_handler:
-            print(f'{indent}special handling cls={pm_src.__class__.__name__}, handler = {special_handler.__name__}')
+            _logger.debug('%s special handling cls=%s, %s', indent, pm_src.__class__.__name__, special_handler.__name__)
             p = special_handler(pm_src, None)
-            print(f'{indent}special handling cls={pm_src.__class__.__name__} done')
+            _logger.debug('%s special handling cls=%s done', indent, pm_src.__class__.__name__)
             return p
         else:
             p = _to_cls[pm_src.__class__]()
@@ -358,7 +359,7 @@ def generic_to_p(pm_src, p, indent='', to_special_funcs=None):
             names = tmp_cls._props  # pylint: disable=protected-access
         except AttributeError:
             continue
-        print(f'{indent}handling class {tmp_cls.__name__}')
+        _logger.debug('%s handling class %s', indent, tmp_cls.__name__)
         # determine p_current_entry_point
         if p_current_entry_point is None:
             p_current_entry_point = p
@@ -369,13 +370,13 @@ def generic_to_p(pm_src, p, indent='', to_special_funcs=None):
         # iterate over all properties
         for name in names:
             cp_type = getattr(pm_src.__class__, name) # containerproperties type
-            print(f'{indent}handling {tmp_cls.__name__}.{name}, cls={cp_type.__class__.__name__}')
+            _logger.debug('%s handling %s, cls=%s', indent, tmp_cls.__name__, cp_type.__class__.__name__)
             # special handler for property?
             special_handler = _to_special_funcs.get(cp_type.__class__)  # e.g. EnumAttributeProperty
             if special_handler:
-                print(f'{indent}special handling handling {pm_src.__class__.__name__} = {special_handler.__name__}')
+                _logger.debug('%s special handling %s = %s', indent, pm_src.__class__.__name__, special_handler.__name__)
                 special_handler(pm_src, p_current_entry_point)
-                print(f'{indent}special handling handling {pm_src.__class__.__name__} done')
+                _logger.debug('%s special handling %s done', indent, pm_src.__class__.__name__)
                 continue
             value = getattr(pm_src, name)
             if value in (None, []):
@@ -391,7 +392,10 @@ def generic_to_p(pm_src, p, indent='', to_special_funcs=None):
                 else:
                     p_name = name_to_p(name)
             # convert
-            p_dest = getattr(p_current_entry_point, p_name)
+            try:
+                p_dest = getattr(p_current_entry_point, p_name)
+            except AttributeError:
+                raise
             special_handler_dest = _to_special_funcs.get(p_dest.__class__)
             special_handler_value = _to_special_funcs.get(value.__class__)
             if isinstance(cp_type, EnumAttributeProperty):
@@ -413,13 +417,13 @@ def generic_to_p(pm_src, p, indent='', to_special_funcs=None):
                 else:
                     setattr(p_current_entry_point, p_name, value)
             elif special_handler_dest is not None:
-                print(f'{indent}special p_dest handling {p_dest.__class__.__name__} = {special_handler_dest.__name__}')
+                _logger.debug('%s special p_dest handling %s = %s', indent, p_dest.__class__.__name__, special_handler_dest.__name__)
                 special_handler_dest(value, p_dest)
-                print(f'{indent}special p_dest handling {p_dest.__class__.__name__}, done')
+                _logger.debug('%s special p_dest handling %s done', indent, p_dest.__class__.__name__)
             elif special_handler_value is not None:
-                print(f'{indent}special value handling {value.__class__.__name__} = {special_handler_value.__name__}')
+                _logger.debug('%s special value handling %s = %s', indent, value.__class__.__name__, special_handler_value.__name__)
                 special_handler_value(value, p_dest)
-                print(f'{indent}special value handling {p_dest.__class__.__name__}, done')
+                _logger.debug('%s special value handling %s done', indent, value.__class__.__name__)
             elif isinstance(cp_type, OperationRefListAttributeProperty):
                 pm_list = getattr(pm_src, name)
                 if pm_list is not None:
@@ -447,16 +451,16 @@ def generic_to_p(pm_src, p, indent='', to_special_funcs=None):
                     setattr(p_current_entry_point, p_name, str(value))
             elif isinstance(cp_type, SubElementListProperty):
                 for elem in value:
-                    print(f'{indent}recursive list elem generic_to_p({elem.__class__.__name__}, None)')
+                    _logger.debug('%s recursive list elem generic_to_p(%s, None)', indent, elem.__class__.__name__)
                     p_value = generic_to_p(elem, None, indent+'    ')
-                    print(f'{indent}recursive list elem generic_to_p ({elem.__class__.__name__}) done')
+                    _logger.debug('%s recursive list elem generic_to_p(%s) done', indent, elem.__class__.__name__)
                     p_dest.append(p_value)
             elif isinstance(cp_type, SubElementTextListProperty):
                 p_dest.extend(value)
             else:
-                print (f'{indent}recursive generic_to_p({value.__class__.__name__}, {p_dest.__class__.__name__})')
+                _logger.debug('%s recursive generic_to_p(%s, %s)', indent, value.__class__.__name__, p_dest.__class__.__name__)
                 generic_to_p(value, p_dest, indent+'    ')
-                print(f'{indent}recursive generic_to_p done')
+                _logger.debug('%s recursive generic_to_p done', indent)
     return p
 
 
@@ -464,9 +468,9 @@ def generic_from_p(p, pm_dest=None, indent=''):
     if pm_dest is None:
         pm_factory = _from_special_funcs.get(p.__class__)
         if pm_factory:
-            print(f'{indent}special factory for class {p.__class__.__name__} = {pm_factory.__name__}')
+            _logger.debug('%s special factory for class %s = %s', indent, p.__class__.__name__, pm_factory.__name__)
             return pm_factory(p)
-        print(f'{indent}generic instantiate class {p.__class__.__name__}')
+        _logger.debug('%s generic instantiate class %s', indent, p.__class__.__name__)
         # use inspect to determine number of parameters for constructor.
         # then call constructor with all parameters = None
         pm_cls = _from_cls[p.__class__]
@@ -474,7 +478,7 @@ def generic_from_p(p, pm_dest=None, indent=''):
         args = [None] * (len(sig.parameters)-1)
         pm_dest = pm_cls(*args)
     classes = inspect.getmro(pm_dest.__class__)
-    print(f'{indent}inheritance = {[c.__name__ for c in classes]}')
+    _logger.debug('%s inheritance = %r', indent, [c.__name__ for c in classes])
     p_current_entry_point = None
     for tmp_cls in classes:
         if tmp_cls.__name__.startswith('_'):
@@ -484,7 +488,7 @@ def generic_from_p(p, pm_dest=None, indent=''):
             names = tmp_cls._props  # pylint: disable=protected-access
         except:
             continue
-        print(f'{indent}handling tmp_cls {tmp_cls.__name__}')
+        _logger.debug('%s handling tmp_cls %s', indent, tmp_cls.__name__)
         # determine p_current_entry_point
         if p_current_entry_point is None:
             p_current_entry_point = p
@@ -495,37 +499,40 @@ def generic_from_p(p, pm_dest=None, indent=''):
         # special handler for whole dest class?
         special_handler = _from_special_funcs.get(tmp_cls)
         if special_handler:
-            print(f'{indent}special handling tmp_cls {tmp_cls.__class__.__name__} = {special_handler.__name__}')
+            _logger.debug('%s special handling tmp_cls %s = %s', indent, tmp_cls.__name__, special_handler.__name__)
             special_handler(pm_dest, p_current_entry_point)
-            print(f'{indent}special handling handling {tmp_cls.__class__.__name__} done')
+            _logger.debug('%s special handling tmp_cls %s done', indent, tmp_cls.__name__)
             break
 
         # iterate over all properties
         for name in names:
-            print(f'{indent}handling {tmp_cls.__name__}.{name}')
+            _logger.debug('%s handling %s.%s', indent, tmp_cls.__name__, name)
             dest_type = getattr(pm_dest.__class__, name)
             # # determine member name in p:
             p_name = p_name_from_pm_name(p, pm_dest.__class__, name)
-            p_src = getattr(p_current_entry_point, p_name)
+            try:
+                p_src = getattr(p_current_entry_point, p_name)
+            except AttributeError:
+                raise
 
             # special handler for property?
             special_handler_src_cls = None
 
             try:
                 # assume this is an optional value, check availability
-                isOptional = True
+                is_optional = True
                 if not p_current_entry_point.HasField(p_name):
                     continue
                 else:
                     special_handler_src_cls = _from_special_funcs.get(p_src.__class__)
             except ValueError:
-                isOptional = False
+                is_optional = False
 
             if special_handler_src_cls:
-                print(f'{indent}special handling src_cls {p_src.__class__.__name__} = {special_handler_src_cls.__name__}')
+                _logger.debug('%s special handling src_cls  %s = %s', indent, p_src.__class__.__name__, special_handler_src_cls.__name__)
                 value = special_handler_src_cls(p_src)
                 setattr(pm_dest, name, value)
-                print(f'{indent}special handling src_cls {p_src.__class__.__name__} done')
+                _logger.debug('%s special handling src_cls  %s done', indent, p_src.__class__.__name__)
                 continue
             if isinstance(dest_type, EnumAttributeProperty):
                 if p_current_entry_point.HasField(p_name):
@@ -537,7 +544,7 @@ def generic_from_p(p, pm_dest=None, indent=''):
             elif isinstance(dest_type, NodeAttributeProperty):
                 # handle optional / non-optional fields
                 value = None
-                if isOptional:
+                if is_optional:
                     if p_current_entry_point.HasField(p_name):
                         value = p_src.value
                 else:
@@ -550,7 +557,7 @@ def generic_from_p(p, pm_dest=None, indent=''):
                         setattr(pm_dest, name, value)
             elif isinstance(dest_type, NodeTextQNameProperty):
                 # ToDo: convert normalized internal namespace to external one
-                str_value = p_src if not isOptional else p_src.value
+                str_value = p_src if not is_optional else p_src.value
                 qname = etree_.QName(str_value)
                 setattr(pm_dest, name, qname)
             elif isinstance(dest_type, NodeEnumTextProperty):
@@ -560,12 +567,13 @@ def generic_from_p(p, pm_dest=None, indent=''):
             elif isinstance(dest_type, NodeTextProperty):
                 special_handler = _from_special_funcs.get(p_src.__class__)
                 if special_handler:
-                    print(f'{indent}special node text handling {p_src.__class__.__name__} = {special_handler.__name__}')
+                    _logger.debug('%s special node text handling %s = %s', indent, p_src.__class__.__name__,
+                                  special_handler.__name__)
                     value = special_handler(p_src)
                     setattr(pm_dest, name, value)
-                    print(f'{indent}special node text handling {p_src.__class__.__name__} ={value}, done')
+                    _logger.debug('%s special node text handling %s done', indent, p_src.__class__.__name__)
                 else:
-                    str_value = p_src if not isOptional else p_src.value
+                    str_value = p_src if not is_optional else p_src.value
                     setattr(pm_dest, name, str_value)
             elif isinstance(dest_type, OperationRefListAttributeProperty):
                 dest_list = getattr(pm_dest, name)
@@ -585,22 +593,25 @@ def generic_from_p(p, pm_dest=None, indent=''):
                 for elem in p_src:
                     special_handler = _from_special_funcs.get(elem.__class__)
                     if special_handler:
-                        print(f'{indent}special list elem handling {elem.__class__.__name__} = {special_handler.__name__}')
+                        _logger.debug('%s special list elem handling %s = %s', indent, elem.__class__.__name__,
+                                      special_handler.__name__)
                         pm_value = special_handler(elem)
                         dest_list.append(pm_value)
-                        print(f'{indent}special list elem handling {pm_dest.__class__.__name__} = {pm_value} done')
+                        _logger.debug('%s special list elem handling %s done', indent, elem.__class__.__name__)
                     else:
-                        print(f'{indent}recursive list elem generic_from_p({elem.__class__.__name__})')
+                        _logger.debug('%s recursive list elem generic_from_p(%s)', indent, elem.__class__.__name__)
                         pm_value = generic_from_p(elem, None, indent + '    ')
                         dest_list.append(pm_value)
-                        print(f'{indent}recursive list elem handling {pm_dest.__class__.__name__} = {pm_value} done')
+                        _logger.debug('%s recursive list elem generic_from_p %s = %s done', indent,
+                                      pm_dest.__class__.__name__, pm_value)
             elif isinstance(dest_type, SubElementTextListProperty):
                 dest_list = getattr(pm_dest, name)
                 dest_list.extend(p_src)
             else:
                 if p_current_entry_point.HasField(p_name):
-                    print(f'{indent}recursive generic_from_p({p_src.__class__.__name__}, {pm_dest.__class__.__name__})')
+                    _logger.debug('%s recursive generic_from_p(%s, %s)', indent, p_src.__class__.__name__,
+                                  pm_dest.__class__.__name__)
                     value = generic_from_p(p_src, None, indent + '    ')
                     setattr(pm_dest, name, value)
-                    print(f'{indent}recursive generic_from_p done')
+                    _logger.debug('%s recursive generic_from_p done', indent)
     return pm_dest

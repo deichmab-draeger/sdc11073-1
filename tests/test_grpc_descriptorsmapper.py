@@ -1,4 +1,5 @@
 import unittest
+import logging
 from decimal import Decimal
 from sdc11073 import pmtypes
 from sdc11073.namespaces import nsmap, domTag
@@ -6,8 +7,30 @@ from sdc11073.namespaces import nsmap, domTag
 from sdc11073.mdib import descriptorcontainers as dc
 from sdc11073.transport.protobuf.mapping import descriptorsmapper as dm
 
+def _start_logger():
+    logger = logging.getLogger('pysdc.grpc')
+    logger.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    # create formatter
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    # add formatter to ch
+    ch.setFormatter(formatter)
+    # add ch to logger
+    logger.addHandler(ch)
+    return ch
+
+def _stop_logger(handler):
+    logger = logging.getLogger('pysdc.grpc.map')
+    logger.setLevel(logging.WARNING)
+    logger.removeHandler(handler)
+
 
 class TestDescriptorsMapper(unittest.TestCase):
+    def setUp(self) -> None:
+        self._log_handler = _start_logger()
+
+    def tearDown(self) -> None:
+        _stop_logger(self._log_handler)
 
     def check_convert(self, obj):
         obj_p = dm.generic_descriptor_to_p(obj, None)
